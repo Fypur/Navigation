@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Robot Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.0/nipplejs.min.js"></script>
+    <style>
+        body { background-color: #333; color: white; font-family: sans-serif; text-align: center; }
+        #joystick_zone { width: 100%; height: 300px; position: relative; margin-top: 50px; }
+        .btn { padding: 15px 30px; font-size: 20px; border: none; border-radius: 5px; margin: 10px; cursor: pointer; }
+        .btn-manu { background-color: #2196F3; color: white; }
+        .btn-auto { background-color: #f44336; color: white; }
+        .status { margin-top: 20px; font-size: 24px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Panneau de Contrôle</h1>
+    
+    <div>
+        <button class="btn btn-manu" onclick="setMode('MANUAL')">MANUEL</button>
+        <button class="btn btn-auto" onclick="setMode('AUTO')">AUTOMATIQUE</button>
+    </div>
+    <div class="status" id="status_text">Mode: MANUEL</div>
+
+    <div id="joystick_zone"></div>
+
+    <div style="margin-top: 30px;">
+        <h2>Carte en Temps Réel</h2>
+        <img id="robot_map" src="/static/map.png" width="80%" style="border: 2px solid white;">
+    </div>
+
+    <script>
+        // Rafraîchir l'image toutes les 2 secondes sans recharger la page
+        setInterval(function() {
+            var img = document.getElementById('robot_map');
+            img.src = "/static/map.png?t=" + new Date().getTime();
+        }, 2000);
+    </script>
+
+    <script>
+        // Gestion du Joystick
+        var joystickManager = nipplejs.create({
+            zone: document.getElementById('joystick_zone'),
+            mode: 'static',
+            position: {left: '50%', top: '50%'},
+            color: 'white',
+            size: 150
+        });
+
+        // Envoi des données en continu quand on bouge
+        joystickManager.on('move', function (evt, data) {
+            if(data.vector) {
+                // On inverse Y car html est inversé parfois, à tester
+                var y = data.vector.y * 50; 
+                var x = data.vector.x * 50;
+                
+                fetch('/move', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({x: x, y: y})
+                });
+            }
+        });
+
+        joystickManager.on('end', function () {
+            // Quand on lache, on envoie 0
+            fetch('/move', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({x: 0, y: 0})
+            });
+        });
+
+        function setMode(mode) {
+            document.getElementById('status_text').innerText = "Mode: " + mode;
+            fetch('/set_mode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({mode: mode})
+            });
+        }
+    </script>
+</body>
+</html>
