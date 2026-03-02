@@ -23,22 +23,22 @@ class Control(Node):
         self.pub_driver = self.create_publisher(Command, "/robot/driver/command", 10)
         self.pub_status = self.create_publisher(Command, "/robot/control/status", 10)
 
-        self.create_subscription(Command, "/robot/control/command", self.cmd_cb, 10)
-        self.create_subscription(Command, "/robot/driver/status", self.driver_cb, 10)
-        self.create_subscription(Command, "/robot/health/status", self.health_cb, 10)
+        self.create_subscription(Command, "/robot/control/command", self.cmd_callback, 10)
+        self.create_subscription(Command, "/robot/driver/status", self.driver_callback, 10)
+        self.create_subscription(Command, "/robot/health/status", self.health_callback, 10)
         self.pub_auto = self.create_publisher(AutoConfig, "/robot/auto/config", 10)
-        self.create_subscription(AutoConfig, "/robot/auto/status", self.auto_cb, 10)
+        self.create_subscription(AutoConfig, "/robot/auto/status", self.auto_callback, 10)
 
         self.create_timer(0.1, self.heartbeat)
 
     def heartbeat(self):
         self.pub_health.publish(Health(state="Hello", name="control"))
 
-    def auto_cb(self, msg: AutoConfig):
+    def auto_callback(self, msg: AutoConfig):
         self.pub_status.publish(Command(action=self.last_cmd, mode=self.mode))
         self.mutex.release()
 
-    def cmd_cb(self, msg: Command):
+    def cmd_callback(self, msg: Command):
         if msg.action == "forward":
             self.mutex.acquire()
             self.last_cmd = msg.action
@@ -61,11 +61,11 @@ class Control(Node):
             self.pub_auto.publish(
                 AutoConfig(action="config", mode=msg.mode, x=self.x, y=self.y, xf=DEST_X, yf=DEST_Y, angle=self.angle))
 
-    def driver_cb(self, msg: Command):
+    def driver_callback(self, msg: Command):
         self.pub_status.publish(Command(action=self.last_cmd))
         self.mutex.release()
 
-    def health_cb(self, msg: Command):
+    def health_callback(self, msg: Command):
         if msg.action == "error":
             self.pub_status.publish(msg)
 

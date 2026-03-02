@@ -19,7 +19,7 @@ class Driver(Node):
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
         self.pub_status = self.create_publisher(Command, "/robot/driver/status", 10)
 
-        self.create_subscription(Command, "/robot/driver/command", self.cmd_cb, 10)
+        self.create_subscription(Command, "/robot/driver/command", self.cmd_callback, 10)
 
         # heartbeat
         self.create_timer(0.1, self.heartbeat)
@@ -43,7 +43,7 @@ class Driver(Node):
         self.pub_health.publish(Health(state="Hello", name="driver"))
 
     # ----------------------
-    def cmd_cb(self, msg: Command):
+    def cmd_callback(self, msg: Command):
         if msg.action == "run":
             self.x += math.cos(math.radians(self.angle)) * msg.distance
             self.y += math.sin(math.radians(self.angle)) * msg.distance

@@ -15,8 +15,8 @@ class DetectNode(Node):
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
         self.pub = self.create_publisher(Detect, "/robot/detect/status", 10)
 
-        self.create_subscription(Command, "/robot/detect/command", self.config_cb, 10)
-        self.create_subscription(Lidar, "/robot/sensor/LiDAR/status", self.lidar_cb, 10)
+        self.create_subscription(Command, "/robot/detect/command", self.config_callback, 10)
+        self.create_subscription(Lidar, "/robot/sensor/LiDAR/status", self.lidar_callback, 10)
 
         self.create_timer(0.1, self.heartbeat)
 
@@ -69,11 +69,11 @@ class DetectNode(Node):
     def heartbeat(self):
         self.pub_health.publish(Health(state="Hello", name="detect"))
 
-    def config_cb(self, msg):
+    def config_callback(self, msg):
         if msg.action == "config":
             self.threshold = msg.distance
 
-    def lidar_cb(self, msg):
+    def lidar_callback(self, msg):
         # self.counter +=1
         # if self.counter % 20 == 0:
         #        self.pub.publish(Detect(action="objet détecté",distance=self.threshold))
