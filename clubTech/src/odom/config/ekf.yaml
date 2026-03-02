@@ -1,0 +1,74 @@
+# TODO : implémenter le choix de la position de départ
+
+ekf_filter_node:
+  ros__parameters:
+    frequency: 50.0
+    sensor_timeout: 0.1
+    two_d_mode: true  # Robot au sol
+    print_diagnostics: true
+
+    # Repères de coordonnées
+    map_frame: map              
+    odom_frame: odom            
+    base_link_frame: base_link  
+    world_frame: odom           
+
+    # Configuration Odométrie (Roue centrale)
+    odom0: /odom/wheel
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true, false, # On prend Vx pour calculer la vitesse du robot, et Vy pour imposer une vitesse nulle selon y
+                   false, false, false,
+                   false, false, false]
+    odom0_differential: false
+
+    # Configuration IMU (BNO086)
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, false, 
+                  false, false, false,
+                  false, false, true,   # On calcule l'orientation en intégrant la vitesse angulaire autour de z
+                  false, false, false]
+    imu0_differential: false # Pas nécessaire si on n'utilise que la vitesse
+    imu0_relative: false # On ne veut pas que l'orientation de l'IMU soit prise comme point zéro
+
+
+# Documentation
+
+
+## queue_size
+
+# Si vous disposez de données à haute fréquence ou si vous utilisez une valeur de paramètre de fréquence basse, 
+# il peut être judicieux d'augmenter la taille de la file d'attente de souscription (subscription queue) afin qu'un plus grand nombre de mesures 
+# soient fusionnées.
+
+
+## differential
+
+# Lors de la mesure d'une variable de pose à l'aide de deux capteurs, il peut arriver que les deux capteurs sous-estiment leurs covariances respectives. 
+# Cela peut amener le filtre à osciller rapidement entre chaque mesure au fur et à mesure de leur arrivée. Dans de tels cas, il est souvent judicieux de 
+# (a) corriger les covariances de mesure, 
+# ou 
+# (b) si la vitesse est également mesurée par l'un des capteurs, de laisser un capteur mesurer la pose et l'autre la vitesse.
+# Cependant, l'application de (a) ou (b) n'est pas toujours réalisable ; c'est pourquoi nous proposons le paramètre différentiel (differential). 
+# Lorsque le mode différentiel est activé, toutes les données de pose absolue sont converties en données de vitesse par différenciation des mesures 
+# de pose absolue. Ces vitesses sont ensuite intégrées comme à l'accoutumée.
+# NOTE : ceci ne s'applique qu'aux capteurs fournissant des mesures de pose ; l'activation du mode différentiel pour les mesures de type « twist » 
+# (vitesse instantanée) n'a aucun effet.
+
+
+## relative
+
+# Lors du démarrage du nœud, si ce paramètre est réglé sur vrai (true), la première mesure est alors traitée comme un « point zéro » pour toutes les mesures 
+# futures. Bien qu'il soit possible d'obtenir un effet similaire avec le paramètre différentiel (differential), la différence fondamentale réside dans le fait 
+# que le paramètre relatif (relative) ne convertit pas la mesure en vitesse avant de l'intégrer. 
+# Si vous souhaitez simplement que les mesures d'un capteur donné commencent à 0, réglez ce paramètre sur vrai.
+
+
+## pose_use_child_frame
+
+# Définit s'il faut utiliser la pose initiale du child_frame_id comme origine de l'odométrie.
+# Note : ce réglage diffère de l'activation du paramètre odom0_relative. En effet, lorsque le child_frame est distinct du base_link_frame, 
+# la rotation du base_link se retrouve couplée à la translation du child_frame. 
+# Activez ce paramètre pour la fusion de sources d'odométrie secondaires qui sont liées rigidement au base_link mais qui présentent un décalage (offset) 
+# non nul par rapport à celui-ci.
