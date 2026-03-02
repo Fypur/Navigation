@@ -18,6 +18,8 @@ class LidarNode(Node):
 
         self.start = time.time()
 
+        self.get_logger().info("Lidar node launched")
+
     def generate_noise(self):
         pts = []
         for i in range(120):

@@ -38,6 +38,8 @@ class Driver(Node):
         self.y = 0  # HEIGHT-80
         self.angle = 0  # -90
 
+        self.get_logger().info("Driver node launched")
+
     # ----------------------
     def heartbeat(self):
         self.pub_health.publish(Health(state="Hello", name="driver"))

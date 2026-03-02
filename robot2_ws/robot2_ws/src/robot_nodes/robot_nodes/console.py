@@ -37,7 +37,7 @@ class Console(Node):
     # -------------------------
     def cmdStatus_cb(self, msg: Command):
         if msg.action == "error":
-            self.get_logger().info(f"ERROR: {msg.reason}")
+            self.get_logger().error(f"{msg.reason}")
             return
 
         if msg.action == "mode":
@@ -60,15 +60,17 @@ class Console(Node):
     # ---------------- UI ----------------
     def show_menu(self):
         mode = "auto" if self.auto_mode else "manu"
-        print("\n==========================")
+        log = "\n==========================\n"
         if not self.auto_mode:
-            print("Commands: forward | left | right | auto")
+            log += "Commands: forward | left | right | auto\n"
         else:
-            print("Commands: manu")
+            log += "Commands: manu\n"
 
-        print(f"Mode : {mode}")
-        print(f"Last : {self.last_cmd}")
-        print("==========================")
+        log += f"Mode : {mode}\n"
+        log += f"Last : {self.last_cmd}\n"
+        log += "==========================\n"
+        self.get_logger().info(log)
+        print(log)
 
     # -------------------------
     def input_loop(self):

@@ -20,6 +20,8 @@ class DetectNode(Node):
 
         self.create_timer(0.1, self.heartbeat)
 
+        self.get_logger().info("Detect node launched")
+
     def polar_to_cartesian(self, angle, distance):
         rad = math.radians(angle)
         x = distance * math.cos(rad)
