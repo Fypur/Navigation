@@ -17,11 +17,9 @@ class Driver(Node):
         super().__init__("driver")
 
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
-        self.pub_status = self.create_publisher(Command,
-                                                "/robot/driver/status", 10)
+        self.pub_status = self.create_publisher(Command, "/robot/driver/status", 10)
 
-        self.create_subscription(Command, "/robot/driver/command", self.cmd_cb,
-                                 10)
+        self.create_subscription(Command, "/robot/driver/command", self.cmd_cb, 10)
 
         # heartbeat
         self.create_timer(0.1, self.heartbeat)
@@ -67,18 +65,15 @@ class Driver(Node):
         self.screen.fill((15, 15, 20))
 
         # draw the target
-        pygame.draw.circle(self.screen, (255, 0, 0),
-                           (int(DEST_X), int(DEST_Y)), 20)
+        pygame.draw.circle(self.screen, (255, 0, 0), (int(DEST_X), int(DEST_Y)), 20)
 
         # robot body
-        pygame.draw.circle(self.screen, (0, 255, 120),
-                           (int(self.x), int(self.y)), 12)
+        pygame.draw.circle(self.screen, (0, 255, 120), (int(self.x), int(self.y)), 12)
 
         # direction line
         dx = math.cos(math.radians(self.angle)) * 25
         dy = math.sin(math.radians(self.angle)) * 25
-        pygame.draw.line(self.screen, (0, 200, 255), (self.x, self.y),
-                         (self.x + dx, self.y + dy), 3)
+        pygame.draw.line(self.screen, (0, 200, 255), (self.x, self.y), (self.x + dx, self.y + dy), 3)
 
         pygame.display.flip()
         self.clock.tick(30)

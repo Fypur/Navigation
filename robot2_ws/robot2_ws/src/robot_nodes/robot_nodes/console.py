@@ -15,15 +15,11 @@ class Console(Node):
         self.auto_mode = False
 
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
-        self.pub_cmd = self.create_publisher(Command, "/robot/control/command",
-                                             10)
+        self.pub_cmd = self.create_publisher(Command, "/robot/control/command", 10)
 
-        self.create_subscription(Command, "/robot/control/status",
-                                 self.cmdStatus_cb, 10)
-        self.create_subscription(Detect, "/robot/detect/status",
-                                 self.detect_cb, 10)
-        self.create_subscription(Command, "/robot/health/status",
-                                 self.health_cb, 10)
+        self.create_subscription(Command, "/robot/control/status", self.cmdStatus_cb, 10)
+        self.create_subscription(Detect, "/robot/detect/status", self.detect_cb, 10)
+        self.create_subscription(Command, "/robot/health/status", self.health_cb, 10)
 
         self.create_timer(0.1, self.heartbeat)
         self.create_timer(0.05, self.process_queue)
@@ -55,8 +51,7 @@ class Console(Node):
 
     # -------------------------
     def detect_cb(self, msg: Detect):
-        self.get_logger().info(
-            f"DETECTION: {msg.action} distance={msg.distance}\r")
+        self.get_logger().info(f"DETECTION: {msg.action} distance={msg.distance}\r")
 
     # -------------------------
     def health_cb(self, msg: Command):

@@ -24,8 +24,7 @@ class HealthNode(Node):
         for m in MODULES:
             self.miss[m] += 1
             if self.miss[m] >= 5:
-                self.pub.publish(Command(action="error",
-                                         reason=f"{m} missing"))
+                self.pub.publish(Command(action="error", reason=f"{m} missing"))
 
 
 def main():

@@ -15,10 +15,8 @@ class DetectNode(Node):
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
         self.pub = self.create_publisher(Detect, "/robot/detect/status", 10)
 
-        self.create_subscription(Command, "/robot/detect/command",
-                                 self.config_cb, 10)
-        self.create_subscription(Lidar, "/robot/sensor/LiDAR/status",
-                                 self.lidar_cb, 10)
+        self.create_subscription(Command, "/robot/detect/command", self.config_cb, 10)
+        self.create_subscription(Lidar, "/robot/sensor/LiDAR/status", self.lidar_cb, 10)
 
         self.create_timer(0.1, self.heartbeat)
 
@@ -90,8 +88,7 @@ class DetectNode(Node):
                 pts.append([angle, dist])
         result = self.detect_object(pts)
         if result and result[1] < self.threshold:
-            self.pub.publish(Detect(action="objet détecté",
-                                    distance=result[1]))
+            self.pub.publish(Detect(action="objet détecté", distance=result[1]))
 
 
 def main():
