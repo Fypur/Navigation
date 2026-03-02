@@ -15,7 +15,7 @@ class HealthNode(Node):
         self.miss=collections.defaultdict(int)
         self.create_timer(0.1,self.check)
 
-    def cb(self,msg):
+    def cb(self, msg):
         self.miss[msg.name]=0
 
     def check(self):

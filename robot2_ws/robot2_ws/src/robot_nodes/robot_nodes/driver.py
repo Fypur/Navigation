@@ -1,6 +1,6 @@
 import rclpy, math, pygame
 from rclpy.node import Node
-from robot_msgs.msg import Health, Command
+from robot_msgs.msg import hea
 
 WIDTH = 800
 HEIGHT = 600
@@ -19,10 +19,10 @@ class Driver(Node):
         self.create_subscription(Command,"/robot/driver/command",self.cmd_cb,10)
 
         # heartbeat
-        self.create_timer(0.1,self.heartbeat)
+        self.create_timer(0.1, self.heartbeat)
 
         # pygame loop 30 FPS
-        self.create_timer(1/30,self.update_screen)
+        self.create_timer(1/30, self.update_screen)
 
         # ---- PYGAME INIT ----
         pygame.init()
@@ -40,7 +40,7 @@ class Driver(Node):
         self.pub_health.publish(Health(state="Hello",name="driver"))
 
     # ----------------------
-    def cmd_cb(self,msg):
+    def cmd_cb(self, msg: Command):
         if msg.action=="run":
             self.x += math.cos(math.radians(self.angle))*msg.distance
             self.y += math.sin(math.radians(self.angle))*msg.distance
@@ -59,18 +59,18 @@ class Driver(Node):
                 rclpy.shutdown()
                 return
 
-        self.screen.fill((15,15,20))
+        self.screen.fill((15, 15, 20))
 
         # draw the target
-        pygame.draw.circle(self.screen,(255,0,0), (int(DEST_X),int(DEST_Y)),20)
+        pygame.draw.circle(self.screen,(255, 0, 0), (int(DEST_X),int(DEST_Y)),20)
 
         # robot body
-        pygame.draw.circle(self.screen,(0,255,120),(int(self.x),int(self.y)),12)
+        pygame.draw.circle(self.screen,(0, 255, 120),(int(self.x),int(self.y)),12)
 
         # direction line
         dx = math.cos(math.radians(self.angle))*25
         dy = math.sin(math.radians(self.angle))*25
-        pygame.draw.line(self.screen,(0,200,255),
+        pygame.draw.line(self.screen,(0, 200, 255),
                          (self.x,self.y),
                          (self.x+dx,self.y+dy),3)
 
