@@ -105,7 +105,7 @@ class Automatic(Node):
         # Vérifie arrivée
         if self.distance_to_goal() < STEP_DISTANCE:
             self.get_logger().info("Destination reached")
-            #self.mode_auto = False
+            # self.mode_auto = False
             self.stop = True
             return
 
@@ -128,14 +128,14 @@ class Automatic(Node):
             msg.action = "forward"
             msg.distance = value
 
-            #self.x += math.cos(math.radians(self.angle)) * value
-            #self.y += math.sin(math.radians(self.angle)) * value
+            # self.x += math.cos(math.radians(self.angle)) * value
+            # self.y += math.sin(math.radians(self.angle)) * value
 
         elif action == "turn":
             msg.action = "turn"
             msg.angle = value
 
-            #self.angle += msg.angle
+            # self.angle += msg.angle
 
         self.pub_cmd.publish(msg)
 

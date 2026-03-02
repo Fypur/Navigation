@@ -20,7 +20,7 @@ class DetectNode(Node):
 
         self.create_timer(0.1, self.heartbeat)
 
-    def polar_to_cartesian(iself, angle, distance):
+    def polar_to_cartesian(self, angle, distance):
         rad = math.radians(angle)
         x = distance * math.cos(rad)
         y = distance * math.sin(rad)
@@ -31,6 +31,9 @@ class DetectNode(Node):
         pts = [self.polar_to_cartesian(a, d) for a, d in points]
 
         clusters = []
+
+        cx = 0
+        cy = 0
 
         for p in pts:
             added = False
@@ -54,8 +57,6 @@ class DetectNode(Node):
 
         if not clusters:
             return None
-
-        obj = max(clusters, key=len)
 
         distance = math.sqrt(cx**2 + cy**2)
         angle = math.degrees(math.atan2(cy, cx))

@@ -14,7 +14,7 @@ class Control(Node):
         super().__init__("control")
         self.last_cmd = None
         self.mutex = Lock()
-        self.mode = False  #False manu True Auto
+        self.mode = False  # False manu True Auto
         self.x = 0.0
         self.y = 0.0
         self.angle = 0.0

@@ -1,4 +1,6 @@
-import rclpy, random, math, time
+import rclpy
+import random
+import time
 from rclpy.node import Node
 from robot_msgs.msg import Health, Lidar
 
@@ -54,7 +56,7 @@ class LidarNode(Node):
             msg.distances.append(dist)
             msg.angles.append(angle)
 
-        #for a in range(360):
+        # for a in range(360):
         #    msg.angles.append(float(a))
         #    if object_present and abs(a)<5:
         #        msg.distances.append(30.0)
