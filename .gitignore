@@ -179,3 +179,20 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+*.pyc
+*.iml
+*.swp
+.project
+.pydevproject
+.DS_Store
+.idea
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# colcon/CMake output
+build
+install
+log
