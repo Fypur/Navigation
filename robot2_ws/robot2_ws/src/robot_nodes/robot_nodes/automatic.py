@@ -7,6 +7,7 @@ from collections import deque
 STEP_DISTANCE = 30.0
 STEP_ANGLE = 15.0
 
+
 class Automatic(Node):
 
     def __init__(self):
@@ -14,12 +15,16 @@ class Automatic(Node):
 
         # Publishers
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
-        self.pub_cmd = self.create_publisher(Command, "/robot/control/command", 10)
-        self.pub_auto = self.create_publisher(AutoConfig, "/robot/auto/status", 10)
+        self.pub_cmd = self.create_publisher(Command, "/robot/control/command",
+                                             10)
+        self.pub_auto = self.create_publisher(AutoConfig, "/robot/auto/status",
+                                              10)
 
         # Subscribers
-        self.create_subscription(AutoConfig, "/robot/auto/config", self.config_cb, 10)
-        self.create_subscription(Detect, "/robot/detect/status", self.detect_cb, 10)
+        self.create_subscription(AutoConfig, "/robot/auto/config",
+                                 self.config_cb, 10)
+        self.create_subscription(Detect, "/robot/detect/status",
+                                 self.detect_cb, 10)
 
         # Timers
         self.create_timer(0.1, self.heartbeat)
@@ -45,20 +50,26 @@ class Automatic(Node):
     # ------------------------------------------------
     def config_cb(self, msg: AutoConfig):
         if msg.action == "config":
-           self.mode_auto = msg.mode
+            self.mode_auto = msg.mode
 
-           self.x = msg.x
-           self.y = msg.y
+            self.x = msg.x
+            self.y = msg.y
 
-           self.xf = msg.xf
-           self.yf = msg.yf
-           self.angle = msg.angle
+            self.xf = msg.xf
+            self.yf = msg.yf
+            self.angle = msg.angle
 
-           self.get_logger().info(
-           f"Auto mode={self.mode_auto} angle={self.angle} start=({self.x},{self.y}) goal=({self.xf},{self.yf})"
-           )
-           self.pub_auto.publish(AutoConfig(mode=msg.mode,x=self.x,y=self.y,xf=self.xf,yf=self.yf,angle=self.angle))
-           self.stop = False
+            self.get_logger().info(
+                f"Auto mode={self.mode_auto} angle={self.angle} start=({self.x},{self.y}) goal=({self.xf},{self.yf})"
+            )
+            self.pub_auto.publish(
+                AutoConfig(mode=msg.mode,
+                           x=self.x,
+                           y=self.y,
+                           xf=self.xf,
+                           yf=self.yf,
+                           angle=self.angle))
+            self.stop = False
         elif msg.action == "setPoint":
             self.x = msg.x
             self.y = msg.y
@@ -66,7 +77,8 @@ class Automatic(Node):
 
     # ------------------------------------------------
     def detect_cb(self, msg):
-        if (not self.stop and self.mode_auto == True) and msg.action == "objet détecté":
+        if (not self.stop
+                and self.mode_auto == True) and msg.action == "objet détecté":
             self.obstacle = True
             self.plan_avoidance()
 
@@ -109,7 +121,8 @@ class Automatic(Node):
             return
 
         # Navigation simple vers cible
-        target_angle = math.degrees(math.atan2(self.yf - self.y, self.xf - self.x))
+        target_angle = math.degrees(
+            math.atan2(self.yf - self.y, self.xf - self.x))
         angle_diff = self.normalize_angle(target_angle - self.angle)
 
         if abs(angle_diff) > STEP_ANGLE:
@@ -132,7 +145,7 @@ class Automatic(Node):
 
         elif action == "turn":
             msg.action = "turn"
-            msg.angle =  value 
+            msg.angle = value
 
             #self.angle += msg.angle
 
@@ -156,4 +169,3 @@ def main():
     node = Automatic()
     rclpy.spin(node)
     rclpy.shutdown()
-
