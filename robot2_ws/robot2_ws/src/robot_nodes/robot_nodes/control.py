@@ -41,11 +41,11 @@ class Control(Node):
     def heartbeat(self):
         self.pub_health.publish(Health(state="Hello", name="control"))
 
-    def auto_cb(self, msg):
+    def auto_cb(self, msg: AutoConfig):
         self.pub_status.publish(Command(action=self.last_cmd, mode=self.mode))
         self.mutex.release()
 
-    def cmd_cb(self, msg):
+    def cmd_cb(self, msg: Command):
         if msg.action == "forward":
             self.mutex.acquire()
             self.last_cmd = msg.action
@@ -83,11 +83,11 @@ class Control(Node):
                            yf=DEST_Y,
                            angle=self.angle))
 
-    def driver_cb(self, msg):
+    def driver_cb(self, msg: Command):
         self.pub_status.publish(Command(action=self.last_cmd))
         self.mutex.release()
 
-    def health_cb(self, msg):
+    def health_cb(self, msg: Command):
         if msg.action == "error":
             self.pub_status.publish(msg)
 

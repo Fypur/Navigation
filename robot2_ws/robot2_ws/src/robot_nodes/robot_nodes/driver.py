@@ -2,7 +2,7 @@ import rclpy
 import math
 import pygame
 from rclpy.node import Node
-from robot_msgs.msg import hea
+from robot_msgs.msg import Health, Command
 
 WIDTH = 800
 HEIGHT = 600
@@ -17,17 +17,17 @@ class Driver(Node):
         super().__init__("driver")
 
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
-        self.pub_status = self.create_publisher(
-            Command, "/robot/driver/status", 10)
+        self.pub_status = self.create_publisher(Command,
+                                                "/robot/driver/status", 10)
 
-        self.create_subscription(
-            Command, "/robot/driver/command", self.cmd_cb, 10)
+        self.create_subscription(Command, "/robot/driver/command", self.cmd_cb,
+                                 10)
 
         # heartbeat
         self.create_timer(0.1, self.heartbeat)
 
         # pygame loop 30 FPS
-        self.create_timer(1/30, self.update_screen)
+        self.create_timer(1 / 30, self.update_screen)
 
         # ---- PYGAME INIT ----
         pygame.init()
@@ -47,8 +47,8 @@ class Driver(Node):
     # ----------------------
     def cmd_cb(self, msg: Command):
         if msg.action == "run":
-            self.x += math.cos(math.radians(self.angle))*msg.distance
-            self.y += math.sin(math.radians(self.angle))*msg.distance
+            self.x += math.cos(math.radians(self.angle)) * msg.distance
+            self.y += math.sin(math.radians(self.angle)) * msg.distance
 
         elif msg.action == "turn":
             self.angle += msg.angle
@@ -75,11 +75,10 @@ class Driver(Node):
                            (int(self.x), int(self.y)), 12)
 
         # direction line
-        dx = math.cos(math.radians(self.angle))*25
-        dy = math.sin(math.radians(self.angle))*25
-        pygame.draw.line(self.screen, (0, 200, 255),
-                         (self.x, self.y),
-                         (self.x+dx, self.y+dy), 3)
+        dx = math.cos(math.radians(self.angle)) * 25
+        dy = math.sin(math.radians(self.angle)) * 25
+        pygame.draw.line(self.screen, (0, 200, 255), (self.x, self.y),
+                         (self.x + dx, self.y + dy), 3)
 
         pygame.display.flip()
         self.clock.tick(30)

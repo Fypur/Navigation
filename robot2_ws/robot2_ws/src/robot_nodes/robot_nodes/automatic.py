@@ -76,7 +76,7 @@ class Automatic(Node):
             self.angle = msg.angle
 
     # ------------------------------------------------
-    def detect_cb(self, msg):
+    def detect_cb(self, msg: Detect):
         if (not self.stop
                 and self.mode_auto == True) and msg.action == "objet détecté":
             self.obstacle = True

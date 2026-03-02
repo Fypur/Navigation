@@ -1,7 +1,7 @@
 import rclpy
 import threading
 import queue
-from threading import Thread, Lock
+from threading import Lock
 from rclpy.node import Node
 from robot_msgs.msg import Health, Command, Detect
 
@@ -39,7 +39,7 @@ class Console(Node):
         self.pub_health.publish(Health(state="Hello", name="console"))
 
     # -------------------------
-    def cmdStatus_cb(self, msg):
+    def cmdStatus_cb(self, msg: Command):
         if msg.action == "error":
             self.get_logger().info(f"ERROR: {msg.reason}")
             return
@@ -54,12 +54,12 @@ class Console(Node):
             self.mutex.release()
 
     # -------------------------
-    def detect_cb(self, msg):
+    def detect_cb(self, msg: Detect):
         self.get_logger().info(
             f"DETECTION: {msg.action} distance={msg.distance}\r")
 
     # -------------------------
-    def health_cb(self, msg):
+    def health_cb(self, msg: Command):
         self.get_logger().info(f"HEALTH: {msg.action} reason={msg.reason}\r")
 
     # ---------------- UI ----------------

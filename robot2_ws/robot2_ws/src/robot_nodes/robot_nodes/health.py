@@ -17,15 +17,15 @@ class HealthNode(Node):
         self.miss = collections.defaultdict(int)
         self.create_timer(0.1, self.check)
 
-    def cb(self, msg):
+    def cb(self, msg: Health):
         self.miss[msg.name] = 0
 
     def check(self):
         for m in MODULES:
             self.miss[m] += 1
             if self.miss[m] >= 5:
-                self.pub.publish(
-                    Command(action="error", reason=f"{m} missing"))
+                self.pub.publish(Command(action="error",
+                                         reason=f"{m} missing"))
 
 
 def main():
