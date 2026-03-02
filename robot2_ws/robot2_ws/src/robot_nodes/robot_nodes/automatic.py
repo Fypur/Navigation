@@ -7,6 +7,7 @@ from collections import deque
 STEP_DISTANCE = 30.0
 STEP_ANGLE = 15.0
 
+
 class Automatic(Node):
 
     def __init__(self):
@@ -45,27 +46,27 @@ class Automatic(Node):
     # ------------------------------------------------
     def config_cb(self, msg: AutoConfig):
         if msg.action == "config":
-           self.mode_auto = msg.mode
+            self.mode_auto = msg.mode
 
-           self.x = msg.x
-           self.y = msg.y
+            self.x = msg.x
+            self.y = msg.y
 
-           self.xf = msg.xf
-           self.yf = msg.yf
-           self.angle = msg.angle
+            self.xf = msg.xf
+            self.yf = msg.yf
+            self.angle = msg.angle
 
-           self.get_logger().info(
-           f"Auto mode={self.mode_auto} angle={self.angle} start=({self.x},{self.y}) goal=({self.xf},{self.yf})"
-           )
-           self.pub_auto.publish(AutoConfig(mode=msg.mode,x=self.x,y=self.y,xf=self.xf,yf=self.yf,angle=self.angle))
-           self.stop = False
+            self.get_logger().info(
+                f"Auto mode={self.mode_auto} angle={self.angle} start=({self.x},{self.y}) goal=({self.xf},{self.yf})")
+            self.pub_auto.publish(
+                AutoConfig(mode=msg.mode, x=self.x, y=self.y, xf=self.xf, yf=self.yf, angle=self.angle))
+            self.stop = False
         elif msg.action == "setPoint":
             self.x = msg.x
             self.y = msg.y
             self.angle = msg.angle
 
     # ------------------------------------------------
-    def detect_cb(self, msg):
+    def detect_cb(self, msg: Detect):
         if (not self.stop and self.mode_auto == True) and msg.action == "objet détecté":
             self.obstacle = True
             self.plan_avoidance()
@@ -104,7 +105,7 @@ class Automatic(Node):
         # Vérifie arrivée
         if self.distance_to_goal() < STEP_DISTANCE:
             self.get_logger().info("Destination reached")
-            #self.mode_auto = False
+            # self.mode_auto = False
             self.stop = True
             return
 
@@ -127,14 +128,14 @@ class Automatic(Node):
             msg.action = "forward"
             msg.distance = value
 
-            #self.x += math.cos(math.radians(self.angle)) * value
-            #self.y += math.sin(math.radians(self.angle)) * value
+            # self.x += math.cos(math.radians(self.angle)) * value
+            # self.y += math.sin(math.radians(self.angle)) * value
 
         elif action == "turn":
             msg.action = "turn"
-            msg.angle =  value 
+            msg.angle = value
 
-            #self.angle += msg.angle
+            # self.angle += msg.angle
 
         self.pub_cmd.publish(msg)
 
@@ -156,4 +157,3 @@ def main():
     node = Automatic()
     rclpy.spin(node)
     rclpy.shutdown()
-
