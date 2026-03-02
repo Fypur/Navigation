@@ -19,7 +19,7 @@ class Automatic(Node):
         self.pub_auto = self.create_publisher(AutoConfig, "/robot/auto/status", 10)
 
         # Subscribers
-        self.create_subscription(AutoConfig, "/robot/auto/config", self.config_cb, 10)
+        self.create_subscription(AutoConfig, "/robot/auto/config", self.config_callback, 10)
         self.create_subscription(Detect, "/robot/detect/status", self.detect_cb, 10)
 
         # Timers
@@ -44,7 +44,7 @@ class Automatic(Node):
         self.pub_health.publish(Health(state="Hello", name="auto"))
 
     # ------------------------------------------------
-    def config_cb(self, msg: AutoConfig):
+    def config_callback(self, msg: AutoConfig):
         if msg.action == "config":
             self.mode_auto = msg.mode
 
