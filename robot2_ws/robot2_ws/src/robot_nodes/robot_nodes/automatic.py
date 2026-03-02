@@ -39,6 +39,8 @@ class Automatic(Node):
         self.obstacle = False
         self.avoid_queue = deque()
 
+        self.get_logger().info("Automatic node launched")
+
     # ------------------------------------------------
     def heartbeat(self):
         self.pub_health.publish(Health(state="Hello", name="auto"))

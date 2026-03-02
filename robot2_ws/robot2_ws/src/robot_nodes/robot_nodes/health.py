@@ -17,6 +17,8 @@ class HealthNode(Node):
         self.miss = collections.defaultdict(int)
         self.create_timer(0.1, self.check_robot_health)
 
+        self.get_logger().info("Health node launched")
+
     def reset_health_callback(self, msg: Health):
         self.miss[msg.name] = 0
 

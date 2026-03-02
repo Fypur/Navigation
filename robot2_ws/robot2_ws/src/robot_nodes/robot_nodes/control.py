@@ -31,6 +31,8 @@ class Control(Node):
 
         self.create_timer(0.1, self.heartbeat)
 
+        self.get_logger().info("Control node launched")
+
     def heartbeat(self):
         self.pub_health.publish(Health(state="Hello", name="control"))
 
