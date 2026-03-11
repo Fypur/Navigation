@@ -3,9 +3,17 @@ import math
 import pygame
 from rclpy.node import Node
 from robot_msgs.msg import Health, Command
+import pymunk  #you can install pymunk in ubuntu globally by running this command :
+# sudo pip install pymunk --break-system-packages
 
-WIDTH = 800
-HEIGHT = 600
+FPS = 30
+
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+
+ROBOT_SIZE = (20, 20)
+DIRECTION_LINE_LENGTH = 30
+ROBOT_CORNER_RADIUS = 1  #smooth round corners instead of sharp ones for better simulation
 
 DEST_X = 700
 DEST_Y = 550
@@ -25,18 +33,20 @@ class Driver(Node):
         self.create_timer(0.1, self.heartbeat)
 
         # pygame loop 30 FPS
-        self.create_timer(1 / 30, self.update_screen)
+        self.create_timer(1 / FPS, self.render)
 
         # ---- PYGAME INIT ----
         pygame.init()
         pygame.display.set_caption("Robot Driver")
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         self.clock = pygame.time.Clock()
 
-        # robot state
-        self.x = 0  # WIDTH/2
-        self.y = 0  # HEIGHT-80
-        self.angle = 0  # -90
+        #pymunk / setting up the robot
+        self.space = pymunk.Space()
+        self.robot_body = pymunk.Body()
+        self.robot_box_shape = pymunk.Poly.create_box(self.robot_body, ROBOT_SIZE, ROBOT_CORNER_RADIUS)
+        self.robot_box_shape.density = 1
+        self.space.add(self.robot_body, self.robot_box_shape)
 
         self.get_logger().info("Driver node launched")
 
@@ -56,29 +66,41 @@ class Driver(Node):
         self.pub_status.publish(Command(action=msg.action))
 
     # ----------------------
-    def update_screen(self):
+    def render(self):
 
         # important sinon fenêtre freeze
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                rclpy.shutdown()
+                self.quit()
                 return
 
         self.screen.fill((15, 15, 20))
 
-        # draw the target
-        pygame.draw.circle(self.screen, (255, 0, 0), (int(DEST_X), int(DEST_Y)), 20)
+        self.draw_robot()
 
-        # robot body
-        pygame.draw.circle(self.screen, (0, 255, 120), (int(self.x), int(self.y)), 12)
+        self.robot_body.velocity = (15, 15)
 
         # direction line
-        dx = math.cos(math.radians(self.angle)) * 25
-        dy = math.sin(math.radians(self.angle)) * 25
-        pygame.draw.line(self.screen, (0, 200, 255), (self.x, self.y), (self.x + dx, self.y + dy), 3)
+        direction = pymunk.Vec2d(0, 1).rotated(self.robot_body.angle) * DIRECTION_LINE_LENGTH
+        pygame.draw.line(self.screen, (0, 200, 255), tuple(self.robot_body.position),
+                         tuple(self.robot_body.position + direction), 3)
+
+        self.space.step(1 / FPS)
 
         pygame.display.flip()
-        self.clock.tick(30)
+        self.clock.tick(FPS)
+
+    def draw_robot(self):
+        world_vertices = [
+            tuple(self.robot_body.position + v.rotated(self.robot_body.angle))
+            for v in self.robot_box_shape.get_vertices()
+        ]
+        pygame.draw.polygon(self.screen, (255, 255, 255), world_vertices)
+
+    def quit(self):
+        pygame.display.quit()
+        pygame.quit()
+        rclpy.shutdown()
 
 
 def main():
