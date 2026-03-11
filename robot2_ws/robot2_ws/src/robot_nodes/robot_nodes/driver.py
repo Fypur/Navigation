@@ -33,7 +33,7 @@ class Driver(Node):
         self.create_timer(0.1, self.heartbeat)
 
         # pygame loop 30 FPS
-        self.create_timer(1 / FPS, self.render)
+        self.create_timer(1 / FPS, self.render)  #wait a bit before starting the simulation
 
         # ---- PYGAME INIT ----
         pygame.init()
@@ -55,13 +55,14 @@ class Driver(Node):
         self.pub_health.publish(Health(state="Hello", name="driver"))
 
     # ----------------------
+    # TODO : Change this to receive not commands but the output to the arduino
+    # The simulation should be receiving a continuous flow of data detailing how to the wheels should be turning
     def cmd_callback(self, msg: Command):
         if msg.action == "run":
-            self.x += math.cos(math.radians(self.angle)) * msg.distance
-            self.y += math.sin(math.radians(self.angle)) * msg.distance
+            self.robot_body.position += pymunk.Vec2d(msg.distance, 0).rotated(self.robot_body.angle)
 
         elif msg.action == "turn":
-            self.angle += msg.angle
+            self.robot_body.angle += math.radians(msg.angle)
 
         self.pub_status.publish(Command(action=msg.action))
 
@@ -78,10 +79,10 @@ class Driver(Node):
 
         self.draw_robot()
 
-        self.robot_body.velocity = (15, 15)
-
         # direction line
-        direction = pymunk.Vec2d(0, 1).rotated(self.robot_body.angle) * DIRECTION_LINE_LENGTH
+        direction = pymunk.Vec2d(1, 0).rotated(self.robot_body.angle) * DIRECTION_LINE_LENGTH
+        self.get_logger().info(str(self.robot_body.angle))
+
         pygame.draw.line(self.screen, (0, 200, 255), tuple(self.robot_body.position),
                          tuple(self.robot_body.position + direction), 3)
 
