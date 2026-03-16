@@ -1,8 +1,6 @@
 import rclpy
-import math
-from threading import Lock
 from rclpy.node import Node
-from robot_msgs.msg import Health, Command, AutoConfig
+from robot_msgs.msg import Health, Command, WheelSpeeds
 
 DEST_X = 700.0
 DEST_Y = 550.0
@@ -12,64 +10,48 @@ class Control(Node):
 
     def __init__(self):
         super().__init__("control")
-        self.last_cmd = None
-        self.mutex = Lock()
-        self.mode = False  # False manu True Auto
-        self.x = 0.0
-        self.y = 0.0
-        self.angle = 0.0
+
+        self.lastWheelMsg = WheelSpeeds(
+            wheel1_speed=0,
+            wheel2_speed=0,
+            wheel3_speed=0,
+            wheel4_speed=0,
+        )
 
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
-        self.pub_driver = self.create_publisher(Command, "/robot/driver/command", 10)
-        self.pub_status = self.create_publisher(Command, "/robot/control/status", 10)
+        self.pub_wheels = self.create_publisher(WheelSpeeds, "/robot/wheels", 10)
 
-        self.create_subscription(Command, "/robot/control/command", self.cmd_callback, 10)
-        self.create_subscription(Command, "/robot/driver/status", self.driver_callback, 10)
-        self.create_subscription(Command, "/robot/health/status", self.health_callback, 10)
-        self.pub_auto = self.create_publisher(AutoConfig, "/robot/auto/config", 10)
-        self.create_subscription(AutoConfig, "/robot/auto/status", self.auto_callback, 10)
+        self.create_subscription(Command, "/robot/command", self.cmd_callback, 10)
 
         self.create_timer(0.1, self.heartbeat)
+
+        self.create_timer(0.1, self.update_wheels)
 
         self.get_logger().info("Control node launched")
 
     def heartbeat(self):
         self.pub_health.publish(Health(state="Hello", name="control"))
 
-    def auto_callback(self, msg: AutoConfig):
-        self.pub_status.publish(Command(action=self.last_cmd, mode=self.mode))
-        self.mutex.release()
+    def cmd_callback(self, cmd_msg: Command):
+        self.get_logger().info("received " + cmd_msg.action)
 
-    def cmd_callback(self, msg: Command):
-        if msg.action == "forward":
-            self.mutex.acquire()
-            self.last_cmd = msg.action
-            self.x += math.cos(math.radians(self.angle)) * msg.distance
-            self.y += math.sin(math.radians(self.angle)) * msg.distance
-            self.pub_driver.publish(Command(action="run", distance=msg.distance))
-            if self.mode == True:
-                self.pub_auto.publish(AutoConfig(action="setPoint", x=self.x, y=self.y, angle=self.angle))
-        elif msg.action == "turn":
-            self.mutex.acquire()
-            self.last_cmd = msg.action
-            self.angle += msg.angle
-            self.pub_driver.publish(Command(action="turn", angle=msg.angle))
-            if self.mode == True:
-                self.pub_auto.publish(AutoConfig(action="setPoint", x=self.x, y=self.y, angle=self.angle))
-        elif msg.action == "mode":
-            self.mutex.acquire()
-            self.mode = msg.mode
-            self.last_cmd = msg.action
-            self.pub_auto.publish(
-                AutoConfig(action="config", mode=msg.mode, x=self.x, y=self.y, xf=DEST_X, yf=DEST_Y, angle=self.angle))
+        wheel_msg = WheelSpeeds()
 
-    def driver_callback(self, msg: Command):
-        self.pub_status.publish(Command(action=self.last_cmd))
-        self.mutex.release()
+        if cmd_msg.action == "speed":
+            wheel_msg.wheel1_speed = cmd_msg.arg1
+            wheel_msg.wheel2_speed = cmd_msg.arg1
+            wheel_msg.wheel3_speed = cmd_msg.arg1
+            wheel_msg.wheel4_speed = cmd_msg.arg1
 
-    def health_callback(self, msg: Command):
-        if msg.action == "error":
-            self.pub_status.publish(msg)
+        elif cmd_msg.action == "turn":
+            pass  #TODO: depending on angle, send certain values to wheels
+
+        self.lastWheelMsg = wheel_msg
+
+    def update_wheels(self):
+        #TODO: FAIRE ASSERVISSEMENT ICI AVEC LES ENCODEURS INCREMENTAUX
+        #TODO: Send msg to tell the wheels to stop turning after a certain time of not receiving commands
+        self.pub_wheels.publish(self.lastWheelMsg)
 
 
 def main():

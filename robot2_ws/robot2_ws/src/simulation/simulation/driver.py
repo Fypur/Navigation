@@ -2,7 +2,7 @@ import rclpy
 import math
 import pygame
 from rclpy.node import Node
-from robot_msgs.msg import Health, Command
+from robot_msgs.msg import Health, WheelSpeeds
 import pymunk  #you can install pymunk in ubuntu globally by running this command :
 # sudo pip install pymunk --break-system-packages
 
@@ -11,7 +11,7 @@ FPS = 30
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 
-ROBOT_SIZE = (20, 20)
+ROBOT_SIZE = (80, 80)
 DIRECTION_LINE_LENGTH = 30
 ROBOT_CORNER_RADIUS = 1  #smooth round corners instead of sharp ones for better simulation
 
@@ -25,13 +25,10 @@ class Driver(Node):
         super().__init__("driver")
 
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
-        self.pub_status = self.create_publisher(Command, "/robot/driver/status", 10)
 
-        self.create_subscription(Command, "/robot/driver/command", self.cmd_callback, 10)
+        self.create_subscription(WheelSpeeds, "/robot/wheels", self.wheels_callback, 10)
 
-        # heartbeat
         self.create_timer(0.1, self.heartbeat)
-
         # pygame loop 30 FPS
         self.create_timer(1 / FPS, self.render)  #wait a bit before starting the simulation
 
@@ -50,23 +47,13 @@ class Driver(Node):
 
         self.get_logger().info("Driver node launched")
 
-    # ----------------------
     def heartbeat(self):
         self.pub_health.publish(Health(state="Hello", name="driver"))
 
-    # ----------------------
-    # TODO : Change this to receive not commands but the output to the arduino
-    # The simulation should be receiving a continuous flow of data detailing how to the wheels should be turning
-    def cmd_callback(self, msg: Command):
-        if msg.action == "run":
-            self.robot_body.position += pymunk.Vec2d(msg.distance, 0).rotated(self.robot_body.angle)
+    def wheels_callback(self, msg: WheelSpeeds):
+        self.get_logger().info(f"{msg.wheel1_speed}, {msg.wheel2_speed}, {msg.wheel3_speed}, {msg.wheel4_speed},")
+        pass
 
-        elif msg.action == "turn":
-            self.robot_body.angle += math.radians(msg.angle)
-
-        self.pub_status.publish(Command(action=msg.action))
-
-    # ----------------------
     def render(self):
 
         # important sinon fenêtre freeze
@@ -81,7 +68,6 @@ class Driver(Node):
 
         # direction line
         direction = pymunk.Vec2d(1, 0).rotated(self.robot_body.angle) * DIRECTION_LINE_LENGTH
-        self.get_logger().info(str(self.robot_body.angle))
 
         pygame.draw.line(self.screen, (0, 200, 255), tuple(self.robot_body.position),
                          tuple(self.robot_body.position + direction), 3)

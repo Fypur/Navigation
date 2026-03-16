@@ -1,5 +1,3 @@
 string action
-float32 distance
-float32 angle
-string reason
-bool mode
+int8 arg1
+int8 arg2
