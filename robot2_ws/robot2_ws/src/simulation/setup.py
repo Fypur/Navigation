@@ -20,6 +20,6 @@ setup(
         'test': ['pytest',],
     },
     entry_points={
-        'console_scripts': ['driver = simulation.driver:main',],
+        'console_scripts': ['simulation = simulation.simulation:main',],
     },
 )

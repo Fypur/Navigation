@@ -1,0 +1,4 @@
+int8 wheel1_speed
+int8 wheel2_speed
+int8 wheel3_speed
+int8 wheel4_speed

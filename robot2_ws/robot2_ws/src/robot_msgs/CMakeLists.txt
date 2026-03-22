@@ -31,6 +31,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Detect.msg"
   "msg/Command.msg"
   "msg/AutoConfig.msg"
+  "msg/WheelSpeeds.msg"
 )
 
 ament_package()

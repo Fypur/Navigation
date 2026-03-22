@@ -3,7 +3,7 @@ import collections
 from rclpy.node import Node
 from robot_msgs.msg import Health, Command
 
-MODULES = ["Lidar", "detect", "console", "control", "driver", "auto"]
+MODULES = ["lidar", "console", "control"]
 
 
 class HealthNode(Node):
