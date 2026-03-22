@@ -19,7 +19,7 @@ class Control(Node):
         )
 
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
-        self.pub_wheels = self.create_publisher(WheelSpeeds, "/robot/wheels", 10)
+        self.pub_wheels = self.create_publisher(WheelSpeeds, "/robot/wheels", 1)
 
         self.create_subscription(Command, "/robot/command", self.cmd_callback, 10)
 
@@ -33,7 +33,7 @@ class Control(Node):
         self.pub_health.publish(Health(state="Hello", name="control"))
 
     def cmd_callback(self, cmd_msg: Command):
-        self.get_logger().info("received " + cmd_msg.action)
+        #self.get_logger().info("received " + cmd_msg.action)
 
         wheel_msg = WheelSpeeds()
 
@@ -51,6 +51,7 @@ class Control(Node):
     def update_wheels(self):
         #TODO: FAIRE ASSERVISSEMENT ICI AVEC LES ENCODEURS INCREMENTAUX
         #TODO: Send msg to tell the wheels to stop turning after a certain time of not receiving commands
+        self.get_logger().info("sent msg " + str(self.lastWheelMsg.wheel1_speed))
         self.pub_wheels.publish(self.lastWheelMsg)
 
 

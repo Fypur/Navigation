@@ -13,7 +13,7 @@ class Console(Node):
 
         self.pub_health = self.create_publisher(Health, "/robot/health", 10)
 
-        self.pub_cmd = self.create_publisher(Command, "/robot/command", 10)
+        self.pub_cmd = self.create_publisher(Command, "/robot/command", 30)
 
         self.create_timer(0.1, self.heartbeat)
         self.create_timer(0.05, self.process_queue)
@@ -30,7 +30,7 @@ class Console(Node):
     # ---------------- UI ----------------
     def show_menu(self):
         log = "\n==========================\n"
-        log += "Commands: forward | left | right | stop\n"
+        log += "Commands: forward | backward | left | right | stop\n"
         log += f"Last : {self.last_cmd}\n"
         log += "==========================\n"
         self.get_logger().info(log)
@@ -54,8 +54,11 @@ class Console(Node):
 
             if cmd == "forward":
                 m.action = "speed"
-                m.arg1 = 20  #this represents speed, in a byte format
+                m.arg1 = 10  #this represents speed, in a byte format
                 #TODO:  Change cmd line to take an argument in speed
+            elif cmd == "backward":
+                m.action = "speed"
+                m.arg1 = -10
             elif cmd == "stop":
                 m.action = "speed"
                 m.arg1 = 0
@@ -70,7 +73,7 @@ class Console(Node):
                 return
 
             self.pub_cmd.publish(m)
-            # self.get_logger().info(f"Sent: {m.action}")
+            #self.get_logger().info(f"Sent: {m.action} with arg1 {m.arg1}")
 
 
 def main():

@@ -14,7 +14,7 @@ def launch_node_with_terminal(package_name: str, node_name: str):
 def generate_launch_description():
 
     # Liste des noms des scripts python à lancer
-    robot_nodes_to_launch = ['automatic', 'console', 'control', 'detect', 'health', 'lidar']
+    robot_nodes_to_launch = ['console', 'control', 'health']
     #simulation_nodes_to_launch = ["driver"]
 
     ld = LaunchDescription()
