@@ -2,7 +2,7 @@ from setuptools import setup
 import os
 from glob import glob
 
-package_name = 'robot_nodes'
+package_name = 'robot'
 
 setup(
     name=package_name,
@@ -22,14 +22,13 @@ setup(
     install_requires=['setuptools'],
     entry_points={
         'console_scripts': [
-            'lidar = robot_nodes.lidar:main',
-            'detect = robot_nodes.detect:main',
-            'console = robot_nodes.console:main',
-            'control = robot_nodes.control:main',
-            'health = robot_nodes.health:main',
-            'driver = robot_nodes.driver:main',
-            'automatic = robot_nodes.automatic:main',
+            'lidar = robot.lidar:main',
+            'detect = robot.detect:main',
+            'console = robot.console:main',
+            'control = robot.control:main',
+            'health = robot.health:main',
+            'driver = robot.driver:main',
+            'automatic = robot.automatic:main',
         ],
     },
 )
-

@@ -21,7 +21,7 @@ def generate_launch_description():
 
     # Ouverture des différents terminaux de type xterm
     for node_name in robot_nodes_to_launch:
-        ld.add_action(launch_node_with_terminal("robot_nodes", node_name))
+        ld.add_action(launch_node_with_terminal("robot", node_name))
 
     #for node_name in simulation_nodes_to_launch:
     #    ld.add_action(launch_node_with_terminal("simulation", node_name))
