@@ -2,7 +2,7 @@ import rclpy
 import random
 import time
 from rclpy.node import Node
-from robot_msgs.msg import Health, Lidar
+from msgs.msg import Health, Lidar
 
 
 class LidarNode(Node):

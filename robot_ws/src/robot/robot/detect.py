@@ -1,7 +1,7 @@
 import rclpy
 import math
 from rclpy.node import Node
-from robot_msgs.msg import Health, Lidar, Detect, Command
+from msgs.msg import Health, Lidar, Detect, Command
 
 
 class DetectNode(Node):

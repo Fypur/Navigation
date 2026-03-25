@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from robot_msgs.msg import Health, Command, WheelSpeeds
+from msgs.msg import Health, Command, WheelSpeeds
 
 DEST_X = 700.0
 DEST_Y = 550.0

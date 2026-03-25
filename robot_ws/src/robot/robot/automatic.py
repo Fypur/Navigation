@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from robot_msgs.msg import Health, Command, Detect, AutoConfig
+from msgs.msg import Health, Command, Detect, AutoConfig
 import math
 from collections import deque
 

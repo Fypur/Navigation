@@ -2,7 +2,7 @@ import rclpy
 import threading
 import queue
 from rclpy.node import Node
-from robot_msgs.msg import Health, Command
+from msgs.msg import Health, Command
 
 
 class Console(Node):

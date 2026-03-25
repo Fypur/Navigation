@@ -1,7 +1,7 @@
 import rclpy
 import collections
 from rclpy.node import Node
-from robot_msgs.msg import Health, Command
+from msgs.msg import Health, Command
 
 MODULES = ["lidar", "console", "control"]
 
