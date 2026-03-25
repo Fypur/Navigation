@@ -22,9 +22,9 @@ class Robot():
         self.space = space
         self.space.add(self.body, self.box_shape)
 
-    def update(self):
+    def update(self, dt):
         for w in self.wheels:
-            w.apply_force()
+            w.apply_force(dt)
 
     def update_wheel_speeds(self, wheel1_speed: float, wheel2_speed: float, wheel3_speed: float, wheel4_speed: float):
         self.wheel1.speed = wheel1_speed
@@ -48,9 +48,13 @@ class Wheel():
 
     def __init__(self, robot: Robot, local_position: tuple[float, float]) -> None:
         self.local_position = local_position
+        self.direction = pymunk.Vec2d(1, 0)
         self.robot = robot
         self.speed = 0.
 
-    def apply_force(self):
-        force = self.speed * self.robot.get_direction()
+    def apply_force(self, dt):
+        current_velocity = self.robot.body.velocity_at_local_point(self.local_position)
+        target_velocity = self.speed * self.direction
+
+        force = (target_velocity - current_velocity) * dt
         self.robot.body.apply_force_at_local_point(force, self.local_position)

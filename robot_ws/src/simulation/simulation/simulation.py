@@ -20,9 +20,11 @@ class Simulation(Node):
 
         self.create_subscription(WheelSpeeds, "/robot/wheels", self.wheels_callback, 1)
 
-        self.create_timer(0.1, self.heartbeat)
+        #self.create_timer(0.1, self.heartbeat)
 
         self.space = pymunk.Space()
+        self.space.damping = 0
+
         self.robot = Robot(self.space)
         self.get_logger().info("Driver node launched")
 
@@ -33,10 +35,10 @@ class Simulation(Node):
         self.get_logger().info(
             f"received speeds : {msg.wheel1_speed}, {msg.wheel2_speed}, {msg.wheel3_speed}, {msg.wheel4_speed}")
         self.robot.update_wheel_speeds(
-            msg.wheel1_speed,
-            msg.wheel2_speed,
-            msg.wheel3_speed,
-            msg.wheel4_speed,
+            msg.wheel1_speed * 100,
+            msg.wheel2_speed * 100,
+            msg.wheel3_speed * 100,
+            msg.wheel4_speed * 100,
         )
 
 
@@ -63,7 +65,7 @@ def main():
                 running = False
 
         # Step Physics
-        node.robot.update()
+        node.robot.update(1 / FPS)
         node.space.step(1 / FPS)
 
         # Render
