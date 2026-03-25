@@ -1,12 +1,12 @@
 import rclpy
-from rclpy.node import Node
 from robot_msgs.msg import Health, Command, WheelSpeeds
+from robot_nodes.steady_node import SteadyNode
 
 DEST_X = 700.0
 DEST_Y = 550.0
 
 
-class Control(Node):
+class Control(SteadyNode):
 
     def __init__(self):
         super().__init__("control")
@@ -18,14 +18,15 @@ class Control(Node):
             wheel4_speed=0,
         )
 
-        self.pub_health = self.create_publisher(Health, "/robot/health", 10)
-        self.pub_wheels = self.create_publisher(WheelSpeeds, "/robot/wheels", 1)
+        self.pub_health = self.create_publisher(Health, "/robot/health", 1)
+        self.pub_wheels = self.create_publisher(WheelSpeeds, "/robot/wheels", 10)
 
         self.create_subscription(Command, "/robot/command", self.cmd_callback, 10)
 
-        self.create_timer(0.1, self.heartbeat)
+        # self.create_timer(0.1, self.heartbeat)
 
-        self.create_timer(0.1, self.update_wheels)
+        self.i = 0
+        self.t = self.create_timer(0.1, self.update_wheels)
 
         self.get_logger().info("Control node launched")
 
@@ -33,7 +34,7 @@ class Control(Node):
         self.pub_health.publish(Health(state="Hello", name="control"))
 
     def cmd_callback(self, cmd_msg: Command):
-        #self.get_logger().info("received " + cmd_msg.action)
+        self.get_logger().info("received " + cmd_msg.action)
 
         wheel_msg = WheelSpeeds()
 
@@ -51,11 +52,13 @@ class Control(Node):
     def update_wheels(self):
         #TODO: FAIRE ASSERVISSEMENT ICI AVEC LES ENCODEURS INCREMENTAUX
         #TODO: Send msg to tell the wheels to stop turning after a certain time of not receiving commands
-        self.get_logger().info("sent msg " + str(self.lastWheelMsg.wheel1_speed))
+        #self.get_logger().info("sent speeds " + str(self.lastWheelMsg.wheel1_speed))
         self.pub_wheels.publish(self.lastWheelMsg)
 
 
 def main():
     rclpy.init()
-    rclpy.spin(Control())
+    node = Control()
+    rclpy.spin(node)
+    node.destroy_node()
     rclpy.shutdown()
