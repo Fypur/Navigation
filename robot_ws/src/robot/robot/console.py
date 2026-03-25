@@ -1,7 +1,7 @@
 import rclpy
 import threading
 import queue
-from robot_nodes.steady_node import SteadyNode
+from robot.steady_node import SteadyNode
 from msgs.msg import Health, Command
 
 SPEED = 100

@@ -1,5 +1,5 @@
 import rclpy
-from robot_nodes.steady_node import SteadyNode
+from robot.steady_node import SteadyNode
 from msgs.msg import Health, Command, WheelSpeeds
 
 DEST_X = 700.0
