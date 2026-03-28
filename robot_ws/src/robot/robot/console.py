@@ -1,6 +1,4 @@
 import rclpy
-import threading
-import queue
 from robot.steady_node import SteadyNode
 from msgs.msg import Health, Command
 
@@ -20,6 +18,10 @@ class Console(SteadyNode):
 
         self.create_timer(0.1, self.heartbeat)
 
+        # This is technically bad since it blocks the main thread
+        # But I had issues with the previous version with some desyncs
+        # Console shouldn't really be receiving data anyways so i'd much
+        # rather leave it like this. Feel free to change it though
         self.input_loop()
 
     def heartbeat(self):
