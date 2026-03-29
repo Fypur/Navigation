@@ -29,6 +29,8 @@ class Serial(SteadyNode):
 
         self.create_subscription(WheelSpeeds, "/robot/wheels", self.send_wheel_speeds, 10)
 
+        self.get_logger().info("Serial node successfully launched")
+
     def send_wheel_speeds(self, msg: WheelSpeeds):
         """Sends the wheel speeds in the WheelSpeeds msg over to the arduino"""
         self.write_order(Order.WHEELSPEEDS)

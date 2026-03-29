@@ -33,7 +33,10 @@ def get_serial_ports() -> list[str]:
     return results
 
 
-def open_serial_port(serial_port: str | None = None, baudrate=115200, timeout=1, write_timeout=0):
+def open_serial_port(serial_port: str | None = None,
+                     baudrate: int = 115200,
+                     timeout: float | None = 1,
+                     write_timeout: float | None = 0):
     """
     Try to open serial port with Arduino
     If not port is specified, it will be automatically detected
