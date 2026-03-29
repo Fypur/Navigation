@@ -9,6 +9,7 @@ from msgs.msg import WheelSpeeds
 #https://github.com/araffin/arduino-robust-serial
 
 BAUDRATE = 9600
+CONNECT_PERIOD = 1  #time between each attempt to connect to the arduino
 
 
 class Order(Enum):
@@ -31,13 +32,41 @@ class Serial(SteadyNode):
 
         self.get_logger().info("Serial node successfully launched")
 
+        self.connected_to_arduino = False
+        self.connect_timer = self.create_timer(CONNECT_PERIOD, self.connect_to_arduino)
+
     def send_wheel_speeds(self, msg: WheelSpeeds):
         """Sends the wheel speeds in the WheelSpeeds msg over to the arduino"""
+
+        if not (self.connected_to_arduino):
+            return
+
         self.write_order(Order.WHEELSPEEDS)
         self.write_i8(msg.front_left_wheel_speed)
         self.write_i8(msg.front_right_wheel_speed)
         self.write_i8(msg.back_right_wheel_speed)
         self.write_i8(msg.back_left_wheel_speed)
+
+        self.get_logger().info("Sent wheel speeds message")
+
+    def connect_to_arduino(self):
+        if self.connected_to_arduino:
+            self.connect_timer.cancel()
+            return
+
+        self.get_logger().info("Waiting for arduino...")
+        self.write_order(Order.HELLO)
+
+        bytes_array = bytearray(self.serial_file.read(1))
+
+        if not bytes_array:
+            self.get_logger().info("invalid bytes array")
+            return
+
+        if bytes_array[0] in [Order.HELLO.value, Order.ALREADY_CONNECTED.value]:
+            self.connected_to_arduino = True
+            self.connect_timer.cancel()
+            self.get_logger().info("Connected successfully to Arduino")
 
     def write_i8(self, value: int):
         if -128 <= value <= 127:
