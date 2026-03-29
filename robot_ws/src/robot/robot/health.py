@@ -1,12 +1,12 @@
 import rclpy
 import collections
-from rclpy.node import Node
+from steady_node import SteadyNode
 from msgs.msg import Health, Command
 
 MODULES = ["lidar", "console", "control"]
 
 
-class HealthNode(Node):
+class HealthNode(SteadyNode):
 
     def __init__(self):
         super().__init__("health")

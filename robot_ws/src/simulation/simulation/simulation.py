@@ -33,12 +33,13 @@ class Simulation(Node):
 
     def wheels_callback(self, msg: WheelSpeeds):
         self.get_logger().info(
-            f"received speeds : {msg.wheel1_speed}, {msg.wheel2_speed}, {msg.wheel3_speed}, {msg.wheel4_speed}")
+            f"received speeds : {msg.front_left_wheel_speed}, {msg.front_right_wheel_speed}, {msg.back_right_wheel_speed}, {msg.back_left_wheel_speed}"
+        )
         self.robot.update_wheel_speeds(
-            msg.wheel1_speed * 100,
-            msg.wheel2_speed * 100,
-            msg.wheel3_speed * 100,
-            msg.wheel4_speed * 100,
+            msg.front_left_wheel_speed * 100,
+            msg.front_right_wheel_speed * 100,
+            msg.back_right_wheel_speed * 100,
+            msg.back_left_wheel_speed * 100,
         )
 
 

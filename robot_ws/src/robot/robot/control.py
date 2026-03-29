@@ -39,10 +39,10 @@ class Control(SteadyNode):
         wheel_msg = WheelSpeeds()
 
         if cmd_msg.action == "speed":
-            wheel_msg.wheel1_speed = cmd_msg.arg1
-            wheel_msg.wheel2_speed = cmd_msg.arg1
-            wheel_msg.wheel3_speed = cmd_msg.arg1
-            wheel_msg.wheel4_speed = cmd_msg.arg1
+            wheel_msg.front_left_wheel_speed = cmd_msg.arg1
+            wheel_msg.front_right_wheel_speed = cmd_msg.arg1
+            wheel_msg.back_right_wheel_speed = cmd_msg.arg1
+            wheel_msg.back_left_wheel_speed = cmd_msg.arg1
 
         elif cmd_msg.action == "turn":
             pass  #TODO: depending on angle, send certain values to wheels

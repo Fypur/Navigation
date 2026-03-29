@@ -8,7 +8,7 @@ from rclpy.clock import Clock, ClockType
 
 
 #this is a class to make everything work in wsl2
-#it changes clock types to be steady, else after sometime the timers just stop working in wsl2
+#it changes the node's clock types to be steady, else after sometime the timers just stop working in wsl2
 class SteadyNode(Node):
 
     def __init__(self,
