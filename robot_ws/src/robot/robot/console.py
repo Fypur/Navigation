@@ -30,7 +30,7 @@ class Console(SteadyNode):
     # ---------------- UI ----------------
     def show_menu(self):
         log = "\n==========================\n"
-        log += "Commands: forward | backward | left | right | stop\n"
+        log += "Commands: speed | stop\n"
         log += f"Last : {self.last_cmd}\n"
         log += "==========================\n"
         self.get_logger().info(log)
@@ -51,22 +51,18 @@ class Console(SteadyNode):
     def process(self, cmd: str):
         m = Command()
 
-        if cmd == "forward":
+        split_cmd = cmd.split(" ")
+        command_name = split_cmd[0]
+
+        if command_name == "speed":
             m.action = "speed"
-            m.arg1 = SPEED  #this represents speed, in a byte format
-            #TODO:  Change cmd line to take an argument in speed
-        elif cmd == "backward":
-            m.action = "speed"
-            m.arg1 = -SPEED
-        elif cmd == "stop":
+            if len(split_cmd) >= 2:
+                m.arg1 = int(split_cmd[1])
+            else:
+                m.arg1 = SPEED
+        elif command_name == "stop":
             m.action = "speed"
             m.arg1 = 0
-        elif cmd == "left":
-            m.action = "turn"
-            m.arg1 = -TURN_ANGLE
-        elif cmd == "right":
-            m.action = "turn"
-            m.arg1 = TURN_ANGLE
         else:
             self.get_logger().info("Unknown command")
             return
@@ -79,3 +75,5 @@ def main():
     rclpy.init()
     rclpy.spin(Console())
     rclpy.shutdown()
+
+main()
