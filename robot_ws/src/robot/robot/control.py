@@ -34,7 +34,7 @@ class Control(SteadyNode):
         self.pub_health.publish(Health(state="Hello", name="control"))
 
     def cmd_callback(self, cmd_msg: Command):
-        self.get_logger().info("received " + cmd_msg.action)
+        self.get_logger().info(f"received {cmd_msg.action} with arg {cmd_msg.arg1}")
 
         wheel_msg = WheelSpeeds()
 
