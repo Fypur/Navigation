@@ -5,22 +5,13 @@
 #include "wheelTest.h"
 #include <Arduino.h>
 
-#define BAUDRATE 9600
-
-// needs to do 3 things
-//  1 - receive speed orders (wheel1Speed, wheel2Speed...) from Raspberry PI
-//  2 - Use PWM to send those
-//  spc:\Users\amine\Downloads\serial-example\serial-example\slave\slave.h
-//  c:\Users\amine\Downloads\serial-example\serial-example\slave\slave.inoeeds
-//  over to the wheels 3 - Get true wheel displacement through the encoders 4 -
-//  Send those displacements to the RPI for servoing (asservissement)
+#define BAUDRATE 115200
 
 Wheel *wheelFrontLeft;
 Wheel *wheelFrontRight;
 Wheel *wheelBackRight;
 Wheel *wheelBackLeft;
 bool connectedToRaspi = false;
-int speed = 255;
 
 Order read_order() {
     return (Order)read_i8();
@@ -37,11 +28,14 @@ void setup() {
     wheelFrontRight = new Wheel(frontRightMotorSpeedPin, frontRightMotorDirectionPin, true);
     wheelBackRight = new Wheel(backRightMotorSpeedPin, backRightMotorDirectionPin, false);
     wheelBackLeft = new Wheel(backLeftMotorSpeedPin, backLeftMotorDirectionPin, false);
+
+    pinMode(13, OUTPUT);
 }
 
 void loop() {
-    if (Serial.available() <= 0)
+    if (Serial.available() <= 0){
         return;
+    }
 
     // The first byte received is the instruction
     Order order_received = read_order();
@@ -58,17 +52,19 @@ void loop() {
         }
         case Order::AlreadyConnected: {
             connectedToRaspi = true;
+            break;
         }
         case Order::WheelSpeeds: {
-            int8_t frontLeftWheelSpeed = read_i8();
-            int8_t frontRightWheelSpeed = read_i8();
-            int8_t backLeftWheelSpeed = read_i8();
-            int8_t backRightWheelSpeed = read_i8();
+            int frontLeftWheelSpeed = (int)read_i16();
+            int frontRightWheelSpeed = (int)read_i16();
+            int backLeftWheelSpeed = (int)read_i16();
+            int backRightWheelSpeed = (int)read_i16();
 
             wheelFrontLeft->SetSpeed(frontLeftWheelSpeed);
             wheelFrontRight->SetSpeed(frontRightWheelSpeed);
             wheelBackLeft->SetSpeed(backLeftWheelSpeed);
-            wheelBackLeft->SetSpeed(backRightWheelSpeed);
+            wheelBackRight->SetSpeed(backRightWheelSpeed);
+            break;
         }
     }
 }

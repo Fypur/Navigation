@@ -1,7 +1,7 @@
 #pragma once
 
 enum Order {
-    Hello = 0,
-    AlreadyConnected = 1,
-    WheelSpeeds = 2,
+    Hello = 5,
+    AlreadyConnected = 6,
+    WheelSpeeds = 7,
 };

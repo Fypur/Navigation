@@ -1,3 +1,3 @@
 string action
-int8 arg1
-int8 arg2
+int16 arg1
+int16 arg2

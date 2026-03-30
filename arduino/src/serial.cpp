@@ -30,10 +30,10 @@ int8_t read_i8() {
 }
 
 int16_t read_i16() {
-    int8_t buffer[2];
+    int8_t buffer[2] = {0, 0};
     wait_for_bytes(2, 100); // Wait for 2 bytes with a timeout of 100 ms
     read_signed_bytes(buffer, 2);
-    return (((int16_t)buffer[0]) & 0xff) | (((int16_t)buffer[1]) << 8 & 0xff00);
+    return (((int16_t)buffer[0]) & 0x00ff) | (((int16_t)buffer[1]) << 8 & 0xff00);
 }
 
 void write_i8(int8_t num) {
