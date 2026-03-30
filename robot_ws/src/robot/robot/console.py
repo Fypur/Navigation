@@ -2,7 +2,7 @@ import rclpy
 from robot.steady_node import SteadyNode
 from msgs.msg import Health, Command
 
-SPEED = 100
+SPEED = 200
 TURN_ANGLE = 15.0
 
 

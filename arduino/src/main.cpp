@@ -1,82 +1,70 @@
-#include <Arduino.h>
 #include "constants.h"
+#include "orders.h"
+#include "serial.h"
 #include "wheel.h"
 #include "wheelTest.h"
+#include <Arduino.h>
 
+#define BAUDRATE 115200
 
-//needs to do 3 things
-// 1 - receive speed orders (wheel1Speed, wheel2Speed...) from Raspberry PI
-// 2 - Use PWM to send those speeds over to the wheels
-// 3 - Get true wheel displacement through the encoders
-// 4 - Send those displacements to the RPI for servoing (asservissement)
+Wheel *wheelFrontLeft;
+Wheel *wheelFrontRight;
+Wheel *wheelBackRight;
+Wheel *wheelBackLeft;
+bool connectedToRaspi = false;
 
-Wheel* wheelFrontLeft;
-Wheel* wheelFrontRight;
-Wheel* wheelBackRight;
-Wheel* wheelBackLeft;
-int speed = 255;
+Order read_order() {
+    return (Order)read_i8();
+}
 
-void receiveSpeedFromRPI(int);
-void sendSpeedToWheels(int);
+void write_order(Order order) {
+    write_i8((int8_t)order);
+}
 
 void setup() {
+    Serial.begin(BAUDRATE);
 
-  Serial.begin(9600);
-  
-  wheelFrontLeft = new Wheel(frontLeftMotorSpeedPin, frontLeftMotorDirectionPin, false);
-  wheelFrontRight = new Wheel(frontRightMotorSpeedPin, frontRightMotorDirectionPin, true);
-  wheelBackRight = new Wheel(backRightMotorSpeedPin, backRightMotorDirectionPin, false);
-  wheelBackLeft = new Wheel(backLeftMotorSpeedPin, backLeftMotorDirectionPin, false);
+    wheelFrontLeft = new Wheel(frontLeftMotorSpeedPin, frontLeftMotorDirectionPin, false);
+    wheelFrontRight = new Wheel(frontRightMotorSpeedPin, frontRightMotorDirectionPin, true);
+    wheelBackRight = new Wheel(backRightMotorSpeedPin, backRightMotorDirectionPin, false);
+    wheelBackLeft = new Wheel(backLeftMotorSpeedPin, backLeftMotorDirectionPin, false);
 
-  //Important when using encoder
-  /*attachInterrupt(digitalPinToInterrupt(encoderPin), []{ wheelFrontLeft->encoderPulse(); }, FALLING);
-  attachInterrupt(digitalPinToInterrupt(encoderPin), []{ wheelFrontRight->encoderPulse(); }, FALLING);
-  attachInterrupt(digitalPinToInterrupt(encoderPin), []{ wheelBackRight->encoderPulse(); }, FALLING);
-  attachInterrupt(digitalPinToInterrupt(encoderPin), []{ wheelBackLeft->encoderPulse(); }, FALLING);*/
+    pinMode(13, OUTPUT);
 }
 
 void loop() {
-  int delayTime = 200;
-  if (Serial.available()) {
-    char val = Serial.read();
-    if (val != -1)
-    {
-      switch (val)
-      {
-        case 'z':
-          Serial.println("going forward");
-          Forwards (wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight, speed);
-          delay (delayTime);
-          Stop(wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight);
-          break;
-        case 's':
-          Serial.println("going backward");
-          Backwards (wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight, speed);
-          delay (delayTime);
-          Stop(wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight);
-          break;
-        case 'q':
-          Serial.println("going left");
-          GoLeft (wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight, speed);
-          delay (delayTime);
-          Stop(wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight);
-          break;
-        case 'd':
-          Serial.println("going right");
-          GoRight (wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight, speed);
-          delay (delayTime);
-          Stop(wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight);
-          break;
-        case 'w':
-          Serial.println("hello world!");
-          break;
-        case 'x':
-          Serial.println("stopping");
-          Stop(wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight);
-          break;
-      }
+    if (Serial.available() <= 0){
+        return;
     }
-    else Stop(wheelFrontLeft, wheelFrontRight, wheelBackLeft, wheelBackRight);
-  }
-}
 
+    // The first byte received is the instruction
+    Order order_received = read_order();
+
+    switch (order_received) {
+        case Order::Hello: {
+            if (!connectedToRaspi) {
+                connectedToRaspi = true;
+                write_order(Order::Hello);
+            } else
+                write_order(Order::AlreadyConnected);
+
+            break;
+        }
+        case Order::AlreadyConnected: {
+            connectedToRaspi = true;
+            break;
+        }
+        case Order::WheelSpeeds: {
+            int frontLeftWheelSpeed = (int)read_i16();
+            int frontRightWheelSpeed = (int)read_i16();
+            int backLeftWheelSpeed = (int)read_i16();
+            int backRightWheelSpeed = (int)read_i16();
+
+            wheelFrontLeft->SetSpeed(frontLeftWheelSpeed);
+            wheelFrontRight->SetSpeed(frontRightWheelSpeed);
+            wheelBackLeft->SetSpeed(backLeftWheelSpeed);
+            wheelBackRight->SetSpeed(backRightWheelSpeed);
+            break;
+        }
+    }
+}

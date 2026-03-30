@@ -22,13 +22,9 @@ setup(
     install_requires=['setuptools'],
     entry_points={
         'console_scripts': [
-            'lidar = robot.lidar:main',
-            'detect = robot.detect:main',
             'console = robot.console:main',
             'control = robot.control:main',
-            'health = robot.health:main',
-            'driver = robot.driver:main',
-            'automatic = robot.automatic:main',
+            'serial = robot.serial:main',
         ],
     },
 )
