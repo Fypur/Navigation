@@ -2,7 +2,7 @@ import rclpy
 from robot.steady_node import SteadyNode
 from msgs.msg import Health, Command
 
-SPEED = 200
+DEFAULT_SPEED = 200
 TURN_ANGLE = 15.0
 
 
@@ -10,7 +10,7 @@ class Console(SteadyNode):
 
     def __init__(self):
         super().__init__("console")
-        self.last_cmd = "forward"
+        self.last_cmd = "speed"
 
         self.pub_health = self.create_publisher(Health, "/robot/health", 1)
 
@@ -54,15 +54,23 @@ class Console(SteadyNode):
         split_cmd = cmd.split(" ")
         command_name = split_cmd[0]
 
+        def get_arg_or_default_value(arg_index: int, default_value: int):
+            if len(split_cmd) - 1 < arg_index:
+                return default_value
+            return int(split_cmd[arg_index])
+
         if command_name == "speed":
             m.action = "speed"
-            if len(split_cmd) >= 2:
-                m.arg1 = int(split_cmd[1])
-            else:
-                m.arg1 = SPEED
+            m.arg1 = get_arg_or_default_value(1, DEFAULT_SPEED)
+            m.arg2 = get_arg_or_default_value(2, DEFAULT_SPEED)
+            m.arg3 = get_arg_or_default_value(3, DEFAULT_SPEED)
+            m.arg4 = get_arg_or_default_value(4, DEFAULT_SPEED)
         elif command_name == "stop":
             m.action = "speed"
             m.arg1 = 0
+            m.arg2 = 0
+            m.arg3 = 0
+            m.arg4 = 0
         else:
             self.get_logger().info("Unknown command")
             return
