@@ -25,7 +25,7 @@ void setup() {
     Serial.begin(BAUDRATE);
 
     wheelFrontLeft = new Wheel(frontLeftMotorSpeedPin, frontLeftMotorDirectionPin, false);
-    wheelFrontRight = new Wheel(frontRightMotorSpeedPin, frontRightMotorDirectionPin, true);
+    wheelFrontRight = new Wheel(frontRightMotorSpeedPin, frontRightMotorDirectionPin,true);
     wheelBackRight = new Wheel(backRightMotorSpeedPin, backRightMotorDirectionPin, false);
     wheelBackLeft = new Wheel(backLeftMotorSpeedPin, backLeftMotorDirectionPin, false);
 
@@ -57,8 +57,8 @@ void loop() {
         case Order::WheelSpeeds: {
             int frontLeftWheelSpeed = (int)read_i16();
             int frontRightWheelSpeed = (int)read_i16();
-            int backLeftWheelSpeed = (int)read_i16();
             int backRightWheelSpeed = (int)read_i16();
+            int backLeftWheelSpeed = (int)read_i16();
 
             wheelFrontLeft->SetSpeed(frontLeftWheelSpeed);
             wheelFrontRight->SetSpeed(frontRightWheelSpeed);
