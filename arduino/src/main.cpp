@@ -10,9 +10,10 @@ Wheel *wheelFrontLeft;
 Wheel *wheelFrontRight;
 Wheel *wheelBackRight;
 Wheel *wheelBackLeft;
-Wheel *benchmarkedWheel;
 bool connectedToRaspi = false;
 
+unsigned long lostConnectionTime = 0;
+const float timeout = 2.0;
 
 void serialLoop();
 
@@ -30,8 +31,22 @@ void loop() {
 }
 
 void serialLoop(){
-    if (Serial.available() <= 0)
+    if (Serial.available() <= 0){
+
+        if(lostConnectionTime == 0)
+            lostConnectionTime = millis();
+
+        if (millis() - lostConnectionTime > timeout * 1000){
+            wheelFrontLeft->SetSpeed(0);
+            wheelFrontRight->SetSpeed(0);
+            wheelBackRight->SetSpeed(0);
+            wheelBackLeft->SetSpeed(0);
+        }
+        
         return;
+    }
+
+    lostConnectionTime = 0;
 
     // The first byte received is the instruction
     Order order_received = read_order();

@@ -40,37 +40,48 @@ class Control(SteadyNode):
         wheel_msg = WheelSpeeds()
 
         if cmd_msg.action == "speed":
-            wheel_msg.front_left_wheel_speed = self.find_matching_wheel_speed(self.front_left_RPM,
-                                                                              self.front_right_RPM(cmd_msg.arg1))
-            wheel_msg.front_right_wheel_speed = self.find_matching_wheel_speed(self.front_left_RPM,
-                                                                               self.front_right_RPM(cmd_msg.arg2))
-            wheel_msg.back_right_wheel_speed = self.find_matching_wheel_speed(self.front_left_RPM,
-                                                                              self.front_right_RPM(cmd_msg.arg3))
-            wheel_msg.back_left_wheel_speed = self.find_matching_wheel_speed(self.front_left_RPM,
-                                                                             self.front_right_RPM(cmd_msg.arg4))
-
+            wheel_msg.front_left_wheel_speed = self.match_front_right(self.front_left_RPM, cmd_msg.arg1)
+            wheel_msg.front_right_wheel_speed = cmd_msg.arg2
+            wheel_msg.back_right_wheel_speed = self.match_front_right(self.back_right_RPM, cmd_msg.arg3)
+            wheel_msg.back_left_wheel_speed = self.match_front_right(self.back_left_RPM, cmd_msg.arg4)
+            self.get_logger().info(f"{wheel_msg.front_left_wheel_speed}")
         elif cmd_msg.action == "turn":
             pass  #TODO: depending on angle, send certain values to wheels
 
         self.lastWheelMsg = wheel_msg
 
-    def front_left_RPM(self, speed):
+    def front_left_RPM(self, speed: int):
+        if speed == 0:
+            return 0.0
         return (2.543e-05 * speed**3) - (0.01625 * speed**2) + (3.696 * speed) - 136.4
 
-    def front_right_RPM(self, speed):
+    def front_right_RPM(self, speed: int):
+        if speed == 0:
+            return 0.0
         return (2.950e-05 * speed**3) - (0.01849 * speed**2) + (4.246 * speed) - 202.6
 
-    def back_left_RPM(self, speed):
+    def back_left_RPM(self, speed: int):
+        if speed == 0:
+            return 0.0
         return (2.307e-05 * speed**3) - (0.01485 * speed**2) + (3.452 * speed) - 123.2
 
-    def back_right_RPM(self, speed):
+    def back_right_RPM(self, speed: int):
+        if speed == 0:
+            return 0.0
         return (2.048e-07 * speed**4) - (0.0001161 * speed**3) + (0.01932 * speed**2) - (0.03627 * speed) - 16.98
+
+    def match_front_right(self, rpm_function, speed:int):
+        if(speed == 0):
+            return 0
+        return int(copysign(self.find_matching_wheel_speed(rpm_function, self.front_right_RPM(abs(speed))), speed))
 
     def find_matching_wheel_speed(self, rpm_function, target_RPM : float):
         """
         Finds the required speed for a specific wheel (given its rpm_function) 
         to match a target_RPM.
         """
+        if(target_RPM == 0):
+            return 0
         # 2. Binary Search to find the required speed
         low = 0.0
         high = 500.0
