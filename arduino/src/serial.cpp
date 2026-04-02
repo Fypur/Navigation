@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <stdint.h>
-
+#include "orders.h"
 // Code using Robust Arduino Serial Protocol: https://github.com/araffin/arduino-robust-serial
 
 // NOTE : Serial.readBytes is SLOW
@@ -43,4 +43,14 @@ void write_i8(int8_t num) {
 void write_i16(int16_t num) {
     int8_t buffer[2] = {(int8_t)(num & 0xff), (int8_t)(num >> 8)};
     Serial.write((uint8_t *)&buffer, 2 * sizeof(int8_t));
+}
+
+Order read_order()
+{
+    return (Order)read_i8();
+}
+
+void write_order(Order order)
+{
+    write_i8((int8_t)order);
 }

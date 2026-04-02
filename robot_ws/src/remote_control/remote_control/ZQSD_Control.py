@@ -9,7 +9,7 @@ SPEED = 200
 class ZQSD_Control(Node):
 
     def __init__(self):
-        super().__init__("health")
+        super().__init__("ZQSD_control")
         self._clock = Clock(clock_type=ClockType.STEADY_TIME)  #IMPORTANT FOR THIS TO WORK ON WSL2
 
         self.pub_cmd = self.create_publisher(Command, "/robot/command", 10)

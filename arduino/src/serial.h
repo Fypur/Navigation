@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <Arduino.h>
+#include "orders.h"
 
 // Code using Robust Arduino Serial Protocol: https://github.com/araffin/arduino-robust-serial
 
@@ -13,3 +14,5 @@ int8_t read_i8();
 int16_t read_i16();
 void write_i8(int8_t num);
 void write_i16(int16_t num);
+Order read_order();
+void write_order(Order order);
