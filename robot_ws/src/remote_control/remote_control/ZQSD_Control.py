@@ -50,6 +50,16 @@ class ZQSD_Control(Node):
             m.arg2 = -SPEED
             m.arg3 = SPEED
             m.arg4 = -SPEED
+        elif keys[pygame.K_a]:
+            m.arg1 = -SPEED
+            m.arg2 = SPEED
+            m.arg3 = SPEED
+            m.arg4 = -SPEED
+        elif keys[pygame.K_e]:
+            m.arg1 = SPEED
+            m.arg2 = -SPEED
+            m.arg3 = -SPEED
+            m.arg4 = SPEED
         else:
             m.arg1 = 0
             m.arg2 = 0
