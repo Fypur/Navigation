@@ -40,18 +40,14 @@ class Control(SteadyNode):
         wheel_msg = WheelSpeeds()
 
         if cmd_msg.action == "speed":
-            if(abs(cmd_msg.arg1) == abs(cmd_msg.arg2) == abs(cmd_msg.arg3) == abs(cmd_msg.arg4)):
-                [fl_speed, fr_speed, br_speed, bl_speed], target_rpm = self.find_matching_speeds(abs(cmd_msg.arg1))
-                wheel_msg.front_left_wheel_speed = int(copysign(fl_speed, cmd_msg.arg1))
-                wheel_msg.front_right_wheel_speed = int(copysign(fr_speed, cmd_msg.arg2))
-                wheel_msg.back_right_wheel_speed = int(copysign(br_speed, cmd_msg.arg3))
-                wheel_msg.back_left_wheel_speed = int(copysign(bl_speed, cmd_msg.arg4))
-                self.target_rpm = target_rpm
-            else:
-                wheel_msg.front_left_wheel_speed = cmd_msg.arg1
-                wheel_msg.front_right_wheel_speed = cmd_msg.arg2
-                wheel_msg.back_right_wheel_speed = cmd_msg.arg3
-                wheel_msg.back_left_wheel_speed = cmd_msg.arg4
+            wheel_msg.front_left_wheel_speed = self.find_matching_wheel_speed(self.front_left_RPM,
+                                                                              self.front_right_RPM(cmd_msg.arg1))
+            wheel_msg.front_right_wheel_speed = self.find_matching_wheel_speed(self.front_left_RPM,
+                                                                               self.front_right_RPM(cmd_msg.arg2))
+            wheel_msg.back_right_wheel_speed = self.find_matching_wheel_speed(self.front_left_RPM,
+                                                                              self.front_right_RPM(cmd_msg.arg3))
+            wheel_msg.back_left_wheel_speed = self.find_matching_wheel_speed(self.front_left_RPM,
+                                                                             self.front_right_RPM(cmd_msg.arg4))
 
         elif cmd_msg.action == "turn":
             pass  #TODO: depending on angle, send certain values to wheels
@@ -70,38 +66,26 @@ class Control(SteadyNode):
     def back_right_RPM(self, speed):
         return (2.048e-07 * speed**4) - (0.0001161 * speed**3) + (0.01932 * speed**2) - (0.03627 * speed) - 16.98
 
-    def find_matching_speeds(self, target_speed: int):
+    def find_matching_wheel_speed(self, rpm_function, target_RPM : float):
         """
-        Given a speed, calculates the target RPM using the Front Right wheel,
-        then uses binary search to find the required speeds for the other 
-        wheels to achieve that exact same RPM.
+        Finds the required speed for a specific wheel (given its rpm_function) 
+        to match a target_RPM.
         """
-        # 1. Calculate the target RPM we want all wheels to match
-        target_rpm = self.front_right_RPM(target_speed)
+        # 2. Binary Search to find the required speed
+        low = 0.0
+        high = 500.0
+        tolerance = 1e-5
 
-        # Helper function: Binary Search for continuous functions
-        def binary_search_speed(rpm_function, target: float, low=0.0, high=500.0, tolerance=1e-5):
-            """
-            Finds the speed that results in the target RPM.
-            Assumes the RPM function is monotonically increasing between 'low' and 'high'.
-            """
-            while (high - low) > tolerance:
-                mid = (low + high) / 2.0
-                mid_rpm = rpm_function(mid)
+        while (high - low) > tolerance:
+            mid = (low + high) / 2.0
+            mid_rpm = rpm_function(mid)
 
-                if mid_rpm < target:
-                    low = mid  # Target is in the upper half
-                else:
-                    high = mid # Target is in the lower half
+            if mid_rpm < target_RPM:
+                low = mid
+            else:
+                high = mid
 
-            return (low + high) / 2.0
-
-        # 2. Use binary search to find the required speeds for the other wheels
-        fl_speed: float = binary_search_speed(self.front_left_RPM, target_rpm)
-        bl_speed: float = binary_search_speed(self.back_left_RPM, target_rpm)
-        br_speed: float = binary_search_speed(self.back_right_RPM, target_rpm)
-
-        return [round(fl_speed), target_speed, round(br_speed), round(bl_speed)], target_rpm
+        return round((low + high) / 2.0)
 
     def update_wheels(self):
         #TODO: FAIRE ASSERVISSEMENT ICI AVEC LES ENCODEURS INCREMENTAUX
