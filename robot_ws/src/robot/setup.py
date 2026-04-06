@@ -25,6 +25,7 @@ setup(
             'console = robot.console:main',
             'control = robot.control:main',
             'serial = robot.serial:main',
+            'lidar = robot.lidar:main',
         ],
     },
 )
