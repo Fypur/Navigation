@@ -12,7 +12,7 @@ Publie sur :
 import math
 from robot.steady_node import SteadyNode
 import rclpy
-from msgs.msgs import Lidar, Command
+from msgs.msg import Lidar, Command
 from geometry_msgs.msg import Pose2D
 
 #-- Paramètres à ajuster --
@@ -59,7 +59,7 @@ class Automatic(SteadyNode):
         
         # Etat
         self.obstacle_angles: list[float] = []
-        self.obstacle_distances = list[float] = []
+        self.obstacle_distances: list[float] = []
         self.robot_x: float = 0.0
         self.robot_y: float = 0.0
         self.robot_theta: float = 0.0
@@ -111,45 +111,129 @@ class Automatic(SteadyNode):
         vx, vy, w = self._force_to_velocity(fx, fy)
         self._publish_command(vx, vy, w)
         
-        #-- APF --
-        def _compute_apf(self, dx_goal: float, dy_goal: float):
-            """
-            Calcule la force totale (fx, fy) dans le repère 'monde', celui du départ du robot
-            """
-            pass
-        
-        #-- Conversion force -> vitesse --
-        def _force_to_velocity(self, fx: float, fy: float):
-            """
-            Projette la force dans le repère robot et calcule la vitesse angulaire pour aligner le cap.
-            """
-            pass
-        
-        #-- Publication -- 
-        def _publish_command(self, vx: float, vy: float, w: float):
-            """
-            Convertit (vx, vy, w) en 4 vitesses PWM via la cinématique et publie un Command vers le
-            topic /robot/command.
+    #-- APF --
+    def _compute_apf(self, dx_goal: float, dy_goal: float):
+        """
+        Calcule la force totale (fx, fy) dans le repère 'monde', celui du départ du robot
+        """
+        dist_goal = math.hypot(dx_goal, dy_goal)
+        if dist_goal > 0 :
+            fx_att = K_ATT * dx_goal / dist_goal
+            fy_att = K_ATT * dy_goal / dist_goal
+        else:
+            fx_att = 0
+            fy_att = 0
+
+        fx_rep, fy_rep = 0.0, 0.0
+        for angle, d in zip(self.obstacle_angles, self.obstacle_distances):
+            if not math.isfinite(d) or d < MIN_DIST or d > D0:
+                continue
+            d = max(d, MIN_DIST) # éviter les divisions par 0
             
-            Convention des arguements (identique à la console):
-                arg1 = avant-gauche, arg2 = avant-droite,
-                arg3 = arrière-droite, arg4 = arrière-gauche
-            """
-            pass
+            # Direction obstacle dans le repère monde
+            angle_world = self.robot_theta + angle
+            ox = d * math.cos(angle_world)
+            oy = d * math.sin(angle_world)
+            coeff = K_REP * (1.0 / d - 1.0 / D0) / (d**2)
+            # Force opposée à la direction robot -> obstacle
+            fx_rep -= coeff * ox / d
+            fy_rep -= coeff * oy / d
         
-        def _stop(self):
-            cmd = Command()
-            cmd.action = 'speed'
-            cmd.arg1 = cmd.arg2 = cmd.arg3 = cmd.arg4 = 0
-            self.pub_cmd.publish(cmd)
+        return fx_att + fx_rep, fy_att + fy_rep
+        
+        
+    #-- Conversion force -> vitesse --
+    def _force_to_velocity(self, fx: float, fy: float):
+        """
+        Projette la force dans le repère robot et calcule la vitesse angulaire pour aligner le cap.
+        """
+        cos_t = math.cos(self.robot_theta)
+        sin_t = math.sin(self.robot_theta)
+        
+        # Projection dans le repère robot
+        vx = cos_t * fx + sin_t * fy
+        vy = -sin_t * fx + cos_t * fy
+        
+        # COrrection angulaire pour aligner l robot sur la direction de la force
+        desired_heading = math.atan2(fy, fx)
+        heading_error = _angle_wrap(desired_heading - self.robot_theta)
+        w = 1.0 * heading_error # gain angulaire (à ajuster)
+        
+        return vx, vy, w
             
-        #-- Public -- 
-        def set_goal(self, x: float, y: float):
-            self.goal_x = x
-            self.goal_y = y
-            self.goal_reached = False
-            self.get_logger().info(f"Nouvelle cible : ({x:.2f},{y:.2f})")
         
+    #-- Publication -- 
+    def _publish_command(self, vx: float, vy: float, w: float):
+        """
+        Convertit (vx, vy, w) en 4 vitesses PWM via la cinématique et publie un Command vers le
+        topic /robot/command.
+        
+        Convention des arguements (identique à la console):
+            arg1 = avant-gauche, arg2 = avant-droite,
+            arg3 = arrière-droite, arg4 = arrière-gauche
+        """
+        
+        # Normalisation de la vitesse
+        vx_n = _clamp(vx / MAX_LINEAR_FORCE, -1.0, 1.0)
+        vy_n = _clamp(vy / MAX_LINEAR_FORCE, -1.0, 1.0)
+        w_n = _clamp(w / MAX_ANGULAR_FORCE, -1.0, 1.0)
+        
+        # Modèle cinématique pour un robot à 4 roues totutes directions
+        fl = vx_n - vy_n - w_n # avant-gauche
+        fr = vx_n + vy_n + w_n # avant-droite
+        rr = vx_n - vy_n + w_n # arrière-droite
+        rl = vx_n + vy_n - w_n # arrière-gauche
+        
+        # Normalisation pour que la valeur max soit 1.0
+        max_val = max(abs(fl), abs(fr), abs(rr), abs(rl), 1.0)
+        fl /= max_val
+        fr /= max_val
+        rr /= max_val
+        rl /= max_val
+        
+        def to_pwm(v: float):
+            return int(v * MAX_SPEED)
+        
+        cmd = Command()
+        cmd.action = 'speed'
+        cmd.arg1 = to_pwm(fl)
+        cmd.arg2 = to_pwm(fr)
+        cmd.arg3 = to_pwm(rr)
+        cmd.arg4 = to_pwm(rl)
+        
+        self.pub_cmd.publish(cmd)
+        self.get_logger().debug(
+            f"APF -> FL={cmd.arg1}, FR={cmd.arg2}, RR={cmd.arg3}, RL={cmd.arg4}"
+        )
+    
+    def _stop(self):
+        cmd = Command()
+        cmd.action = 'speed'
+        cmd.arg1 = cmd.arg2 = cmd.arg3 = cmd.arg4 = 0
+        self.pub_cmd.publish(cmd)
+        
+    #-- Public -- 
+    def set_goal(self, x: float, y: float):
+        self.goal_x = x
+        self.goal_y = y
+        self.goal_reached = False
+        self.get_logger().info(f"Nouvelle cible : ({x:.2f},{y:.2f})")
+        
+        
+#-- Fonctions utilitaires --
+
+def _angle_wrap(angle: float) -> float:
+    """Ramène un angle à l'intervalle [-pi, pi]"""
+    while angle > math.pi:
+        angle -= 2 * math.pi
+    while angle < -math.pi:
+        angle += 2 * math.pi
+    return angle
+
+def _clamp(v: float, lo: float, hi: float) -> float:
+    """Limite v à l'intervalle [lo, hi]"""
+    return max(lo, min(hi, v))
+
 
 #-- Point d'entrée --
 

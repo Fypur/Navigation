@@ -26,6 +26,7 @@ setup(
             'control = robot.control:main',
             'serial = robot.serial:main',
             'lidar = robot.lidar:main',
+            'automatic = robot.automatic:main',
         ],
     },
 )
