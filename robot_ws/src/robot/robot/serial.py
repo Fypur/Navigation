@@ -26,7 +26,11 @@ class Serial(SteadyNode):
 
     def __init__(self):
         super().__init__("serial")
-        self.serial_file = open_serial_port(baudrate=BAUDRATE, timeout=None)
+
+        self.declare_parameter("serial_port", value="/dev/ttyUSB0")
+
+        serial_port: str = self.get_parameter("serial_port").get_parameter_value().string_value
+        self.serial_file = open_serial_port(serial_port=serial_port, baudrate=BAUDRATE, timeout=None)
 
         self.create_subscription(WheelSpeeds, "/robot/wheels", self.send_wheel_speeds, 10)
 

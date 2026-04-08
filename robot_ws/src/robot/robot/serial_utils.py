@@ -46,7 +46,6 @@ def open_serial_port(serial_port: str | None = None,
             serial_port = get_serial_ports()[0]
         except IndexError as e:
             print("Couldn't find a serial port.")
-            exit()
     # timeout=0 non-blocking mode, return immediately in any case, returning zero or more,
     # up to the requested number of bytes
     return serial.Serial(port=serial_port, baudrate=baudrate, timeout=timeout, write_timeout=write_timeout)
