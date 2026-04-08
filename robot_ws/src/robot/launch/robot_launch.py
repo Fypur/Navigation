@@ -41,7 +41,7 @@ def generate_launch_description():
     )
 
     # Liste des noms des scripts python à lancer dans le package robot
-    robot_nodes_to_launch = ['console', 'control', 'serial', 'lidar']
+    robot_nodes_to_launch = ['console', 'control', 'serial', 'lidar', 'encoders']
     #simulation_nodes_to_launch = ["driver"]
 
     ld = LaunchDescription()

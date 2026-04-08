@@ -1,7 +1,7 @@
 import rclpy
 from math import copysign
 from robot.steady_node import SteadyNode
-from msgs.msg import Health, Command, WheelSpeeds
+from msgs.msg import Health, Command, WheelSpeeds, RPMs
 
 DEST_X = 700.0
 DEST_Y = 550.0
@@ -22,6 +22,7 @@ class Control(SteadyNode):
 
         self.pub_health = self.create_publisher(Health, "/robot/health", 1)
         self.pub_wheels = self.create_publisher(WheelSpeeds, "/robot/wheels", 10)
+        self.sub_encoders = self.create_subscription(RPMs, "/robot/encoders", self.encoders_callback, 10)
 
         self.create_subscription(Command, "/robot/command", self.cmd_callback, 10)
 
@@ -49,6 +50,9 @@ class Control(SteadyNode):
             pass  #TODO: depending on angle, send certain values to wheels
 
         self.lastWheelMsg = wheel_msg
+
+    def encoders_callback(self, msg: RPMs):
+        pass
 
     def front_left_RPM(self, speed: int):
         if speed == 0:
