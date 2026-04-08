@@ -75,6 +75,7 @@ class Control(SteadyNode):
             return 0
         return int(copysign(self.find_matching_wheel_speed(rpm_function, self.front_right_RPM(abs(speed))), speed))
 
+    # https://github.com/Fypur/Navigation/wiki/Encoders#software-based-drive-correction-via-polynomial-regression
     def find_matching_wheel_speed(self, rpm_function, target_RPM : float):
         """
         Finds the required speed for a specific wheel (given its rpm_function) 
@@ -82,7 +83,7 @@ class Control(SteadyNode):
         """
         if(target_RPM == 0):
             return 0
-        # 2. Binary Search to find the required speed
+        # Binary Search to find the required speed
         low = 0.0
         high = 500.0
         tolerance = 1e-5
@@ -100,7 +101,6 @@ class Control(SteadyNode):
 
     def update_wheels(self):
         #TODO: FAIRE ASSERVISSEMENT ICI AVEC LES ENCODEURS INCREMENTAUX
-        #TODO: Send msg to tell the wheels to stop turning after a certain time of not receiving commands
         #self.get_logger().info("sent speeds " + str(self.lastWheelMsg.wheel1_speed))
         self.pub_wheels.publish(self.lastWheelMsg)
 
