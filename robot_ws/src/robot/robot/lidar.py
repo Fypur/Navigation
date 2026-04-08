@@ -22,11 +22,11 @@ class LidarNode(Node):
         # -- Paramètres déclarés --
         self.declare_parameter('min_distance', 0.05) # en dessous le bruit est trop proche
         self.declare_parameter('max_distance', 6.0) # portée du Lidar dans notre cas pas necessairement tres grande
-        self.declare_parameter('obstacle_range', 0.5) # seuil de detection
+        self.declare_parameter('obstacle_range', 2.0) # seuil de detection
         
         self.min_dist = float(self.get_parameter('min_distance').value or 0.05)
         self.max_dist = float(self.get_parameter('max_distance').value or 6.0)
-        self.obs_range = float(self.get_parameter('obstacle_range').value or 0.5)
+        self.obs_range = float(self.get_parameter('obstacle_range').value or 2.0)
 
         # -- Abonnnement au driver officiel
         # -- Le driver rplidar_ros publie sur le /scan en sensor_msgs/LaserScan
@@ -70,7 +70,8 @@ class LidarNode(Node):
         
         for r in scan.ranges:
             # On filtre les valeurs invalides
-            if math.isfinite(r) and self.min_dist <= r <= self.max_dist:
+            # if math.isfinite(r) and self.min_dist <= r <= self.max_dist:
+            if math.isfinite(r):
                 # on garde les angles en radians ici
                 angles_all.append(angle)
                 dists_all.append(r)
@@ -78,27 +79,25 @@ class LidarNode(Node):
                 if r <= self.obs_range:
                     angles_obs.append(angle)
                     dists_obs.append(r)
-            
+
             angle += scan.angle_increment
         
-        
+
         # Publication sur topic principal
         msg_all = Lidar()
         msg_all.angles = angles_all
         msg_all.distances = dists_all
         self.pub_lidar.publish(msg_all)
         
-        # Publication topic obstacles (uniquement si des obstacles proches existen)
+        # Publication topic obstacles (uniquement si des obstacles proches existent)
         if angles_obs:
             msg_obs = Lidar()
             msg_obs.angles = angles_obs
             msg_obs.distances = dists_obs
             self.pub_obstacles.publish(msg_obs)
         
-        self.get_logger().info(
-            f"Scan reçu : {len(dists_all)} pts valides, "
-            f"{len(dists_obs)} obstacles (<{self.obs_range}m)"
-        )
+        self.get_logger().info(f"Scan reçu : {len(dists_all)} pts valides, {len(dists_obs)} obstacles (<{self.obs_range}m)")
+        # self.get_logger().info(f"angle_max={scan.angle_max} rad, angle_min={scan.angle_min} rad, angle_inc={scan.angle_increment} rad")
         
 def main():
     rclpy.init()
