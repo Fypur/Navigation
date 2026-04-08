@@ -95,14 +95,11 @@ class LidarNode(Node):
             msg_obs.distances = dists_obs
             self.pub_obstacles.publish(msg_obs)
         
-        self.get_logger().debug(
+        self.get_logger().info(
             f"Scan reçu : {len(dists_all)} pts valides, "
             f"{len(dists_obs)} obstacles (<{self.obs_range}m)"
         )
         
-
-# Point d'entrée
-
 def main():
     rclpy.init()
     node = LidarNode()

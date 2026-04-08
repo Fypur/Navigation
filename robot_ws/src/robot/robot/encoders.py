@@ -48,7 +48,7 @@ class Encoders(SteadyNode):
 
         def update_rpm(self):
             """
-                Updates the RPM of the wheel associated with this encoder and returns it
+                Updates the RPM of the wheel associated with this encoder and returns it.
                 The RPM is positive when spinning forwards, and negative when spinning backwards
             """
             if self.last_measured_time > self.began_measure_time:

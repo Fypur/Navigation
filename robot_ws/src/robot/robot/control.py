@@ -45,7 +45,7 @@ class Control(SteadyNode):
             wheel_msg.front_right_wheel_speed = cmd_msg.arg2
             wheel_msg.back_right_wheel_speed = self.match_front_right(self.back_right_RPM, cmd_msg.arg3)
             wheel_msg.back_left_wheel_speed = self.match_front_right(self.back_left_RPM, cmd_msg.arg4)
-            self.get_logger().info(f"{wheel_msg.front_left_wheel_speed}")
+            # self.get_logger().info(f"front left wheel adjusted speed : {wheel_msg.front_left_wheel_speed}")
         elif cmd_msg.action == "turn":
             pass  #TODO: depending on angle, send certain values to wheels
 
