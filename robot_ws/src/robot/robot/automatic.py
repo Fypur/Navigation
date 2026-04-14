@@ -23,7 +23,7 @@ GOAL_Y = 0.0
 
 # Champ attractif
 K_ATT = 1.5 # gain d'attraction
-GOAL_RADIUS = # distance en mètres en-dessous de laquelle la cible est considérée comme atteinte
+GOAL_RADIUS = 0.1 # distance en mètres en-dessous de laquelle la cible est considérée comme atteinte
 
 # Champ répulsif
 K_REP = 0.8 # gain répulsif
@@ -178,7 +178,7 @@ class Automatic(SteadyNode):
         vy_n = _clamp(vy / MAX_LINEAR_FORCE, -1.0, 1.0)
         w_n = _clamp(w / MAX_ANGULAR_FORCE, -1.0, 1.0)
         
-        # Modèle cinématique pour un robot à 4 roues totutes directions
+        # Modèle cinématique pour un robot à 4 roues toutes directions
         fl = vx_n - vy_n - w_n # avant-gauche
         fr = vx_n + vy_n + w_n # avant-droite
         rr = vx_n - vy_n + w_n # arrière-droite
