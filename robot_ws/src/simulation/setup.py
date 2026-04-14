@@ -20,6 +20,9 @@ setup(
         'test': ['pytest',],
     },
     entry_points={
-        'console_scripts': ['simulation = simulation.simulation:main',],
+        'console_scripts': [
+            'simulation = simulation.simulation:main',
+            'lidar_visualizer = lidar_visualizer.lidar_visualizer:main',
+            ],
     },
 )

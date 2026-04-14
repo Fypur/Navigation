@@ -1,6 +1,6 @@
 import rclpy
 import collections
-from steady_node import SteadyNode
+from robot.steady_node import SteadyNode
 from msgs.msg import Health, Command
 
 MODULES = ["lidar", "console", "control"]

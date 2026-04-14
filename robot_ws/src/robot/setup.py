@@ -28,6 +28,7 @@ setup(
             'lidar = robot.lidar:main',
             'automatic = robot.automatic:main',
             'localization = robot.localization:main',
+            'encoders = robot.encoders:main',
         ],
     },
 )

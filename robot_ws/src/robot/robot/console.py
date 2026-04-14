@@ -1,6 +1,6 @@
 import rclpy
 from robot.steady_node import SteadyNode
-from msgs.msg import Health, Command
+from msgs.msg import Command
 
 DEFAULT_SPEED = 200
 TURN_ANGLE = 15.0
@@ -12,20 +12,13 @@ class Console(SteadyNode):
         super().__init__("console")
         self.last_cmd = "speed"
 
-        self.pub_health = self.create_publisher(Health, "/robot/health", 1)
-
         self.pub_cmd = self.create_publisher(Command, "/robot/command", 10)
-
-        self.create_timer(0.1, self.heartbeat)
 
         # This is technically bad since it blocks the main thread
         # But I had issues with the previous version with some desyncs
         # Console shouldn't really be receiving data anyways so i'd much
         # rather leave it like this. Feel free to change it though
         self.input_loop()
-
-    def heartbeat(self):
-        self.pub_health.publish(Health(state="Hello", name="console"))
 
     # ---------------- UI ----------------
     def show_menu(self):
@@ -34,7 +27,6 @@ class Console(SteadyNode):
         log += f"Last : {self.last_cmd}\n"
         log += "==========================\n"
         self.get_logger().info(log)
-        print(log)
 
     def input_loop(self):
         while rclpy.ok():
@@ -51,13 +43,17 @@ class Console(SteadyNode):
     def process(self, cmd: str):
         m = Command()
 
-        split_cmd = cmd.split(" ")
+        split_cmd = cmd.strip().split(" ")
         command_name = split_cmd[0]
 
         def get_arg_or_default_value(arg_index: int, default_value: int):
             if len(split_cmd) - 1 < arg_index:
                 return default_value
-            return int(split_cmd[arg_index])
+            try:
+                return int(split_cmd[arg_index])
+            except:
+                self.get_logger().error("Couldn't parse given command args.")
+                return default_value
 
         if command_name == "speed":
             m.action = "speed"
@@ -72,9 +68,9 @@ class Console(SteadyNode):
             m.arg3 = 0
             m.arg4 = 0
         else:
-            self.get_logger().info("Unknown command")
+            self.get_logger().error(f"Unknown command \"{command_name}\"")
             return
-
+        
         self.pub_cmd.publish(m)
         #self.get_logger().info(f"Sent: {m.action} with arg1 {m.arg1}")
 
