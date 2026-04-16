@@ -51,7 +51,7 @@ class Serial(SteadyNode):
         self.write_i16(msg.back_right_wheel_speed)
         self.write_i16(msg.back_left_wheel_speed)
 
-        self.get_logger().info(
+        self.get_logger().debug(
             f"Sent wheel speeds message with speeds {msg.front_left_wheel_speed}, {msg.front_right_wheel_speed}, {msg.back_right_wheel_speed}, {msg.back_left_wheel_speed}"
         )
 
@@ -71,10 +71,8 @@ class Serial(SteadyNode):
 
         bytes_array = bytearray(self.serial_file.read(1))
 
-        self.get_logger().info("read bytes")
-
         if not bytes_array:
-            self.get_logger().info("invalid bytes array")
+            self.get_logger().info("Invalid bytes array")
             return
 
         if bytes_array[0] in [Order.HELLO.value, Order.ALREADY_CONNECTED.value]:
