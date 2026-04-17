@@ -12,6 +12,10 @@ class Robot():
         self.body = pymunk.Body()
         self.box_shape = pymunk.Poly.create_box(self.body, ROBOT_SIZE, ROBOT_CORNER_RADIUS)
         self.box_shape.mass = 1
+        
+        # On met une catégorie pour différencier les collisions des rays du Lidar avec le robot
+        # et les autres objets du décor
+        self.box_shape.filter = pymunk.ShapeFilter(categories=0b01)
 
         self.wheel1 = Wheel(self, (ROBOT_SIZE[0] / 2, -ROBOT_SIZE[0] / 2))
         self.wheel2 = Wheel(self, (ROBOT_SIZE[0] / 2, ROBOT_SIZE[0] / 2))

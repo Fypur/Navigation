@@ -65,23 +65,35 @@ class LocalizationNode(Node):
         Recalage de la position via l'environnement pour annuler la dérive
         des encodeurs.
         """
-        current_scan = msg
         
-        if self.previous_lidar_scan is not None:
-            # Executer un algorithme de type ICP (Iterative Closest Point)
-            # Compare current_scan et previous_lidar_scan
-            correction_x, correction_y, correction_theta = self._run_icp(self.previous_lidar_scan, current_scan)
+        try:
+            # L'ICP a besoin de DEUX scans pour comparer.
+            if not hasattr(self, 'prev_scan'):
+                self.prev_scan = msg
+                return # On arrête là pour cette fois
             
-            # Appliquer la correction à la position interne
-            self.x += correction_x
-            self.y += correction_y
-            self.theta += correction_theta
-            self.theta = self._angle_wrap(self.theta)
+            # On lance l'ICP
+            dx, dy, dtheta = self._run_icp(self.prev_scan, msg)
+
+            # Mise à jour de la position
+            self.x += dx
+            self.y += dy
+            self.theta += dtheta
+
+            # Création et publication du message
+            pose_msg = Pose2D()
+            pose_msg.x = float(self.x)
+            pose_msg.y = float(self.y)
+            pose_msg.theta = float(self.theta)
             
-            # On ne publie pas ici et on laisse la position corrigée 
-            # être publiée par le callback des encodeurs
-            
-        self.previous_lidar_scan = current_scan
+            self.pub_pos.publish(pose_msg)
+
+            # On sauvegarde le scan actuel pour le prochain tour
+            self.prev_scan = msg
+
+        except Exception as e:
+            # SI LE MOINDRE TRUC PLANTE, ÇA S'AFFICHERA ICI EN ROUGE
+            self.get_logger().error(f"ERREUR FATALE : {e}")
         
     
     # -- Méthodes utilitaires --
