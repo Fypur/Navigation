@@ -91,10 +91,10 @@ class Control(SteadyNode):
 
         wheel_msg = WheelSpeeds()
 
-        wheel_msg.front_left_wheel_speed = self.binary_search(self.front_left_RPM, cmd_msg.front_left_rpm)
-        wheel_msg.front_right_wheel_speed = self.binary_search(self.front_right_RPM, cmd_msg.front_right_rpm)
-        wheel_msg.back_right_wheel_speed = self.binary_search(self.back_right_RPM, cmd_msg.back_right_rpm)
-        wheel_msg.back_left_wheel_speed = self.binary_search(self.back_left_RPM, cmd_msg.back_left_rpm)
+        wheel_msg.front_left_wheel_speed = int(self.binary_search(self.front_left_RPM, cmd_msg.front_left_rpm))
+        wheel_msg.front_right_wheel_speed = int(self.binary_search(self.front_right_RPM, cmd_msg.front_right_rpm))
+        wheel_msg.back_right_wheel_speed = int(self.binary_search(self.back_right_RPM, cmd_msg.back_right_rpm))
+        wheel_msg.back_left_wheel_speed = int(self.binary_search(self.back_left_RPM, cmd_msg.back_left_rpm))
 
 
         """if cmd_msg.action == "speed":
