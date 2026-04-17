@@ -57,7 +57,7 @@ def generate_launch_description():
                        emulate_tty=True)
 
     # Liste des noms des scripts python à lancer dans le package robot
-    robot_nodes_to_launch = ['control', 'lidar', 'encoders']
+    robot_nodes_to_launch = ['console', 'control', 'lidar', 'encoders', 'automatic', 'localization']
     #simulation_nodes_to_launch = ["driver"]
 
     ld = LaunchDescription()
