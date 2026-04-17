@@ -9,7 +9,7 @@ class Console(SteadyNode):
 
     def __init__(self):
         super().__init__("console")
-        self.last_cmd = "speed"
+        self.last_cmd = "setrpm"
 
         self.pub_cmd = self.create_publisher(RPMs, "/robot/command", 10)
 

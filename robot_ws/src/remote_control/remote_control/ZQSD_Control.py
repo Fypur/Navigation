@@ -1,10 +1,10 @@
 import rclpy
 from rclpy.node import Node
-from msgs.msg import Command
+from msgs.msg import RPMs
 from rclpy.clock import Clock, ClockType
 import pygame
 
-SPEED = 200
+DEFAULT_RPM = 167
 
 class ZQSD_Control(Node):
 
@@ -12,7 +12,7 @@ class ZQSD_Control(Node):
         super().__init__("ZQSD_control")
         self._clock = Clock(clock_type=ClockType.STEADY_TIME)  #IMPORTANT FOR THIS TO WORK ON WSL2
 
-        self.pub_cmd = self.create_publisher(Command, "/robot/command", 10)
+        self.pub_cmd = self.create_publisher(RPMs, "/robot/command", 10)
         self.create_timer(0.1, self.check_input)
 
         pygame.init()
@@ -26,48 +26,47 @@ class ZQSD_Control(Node):
             if event.type == pygame.QUIT:
                 raise KeyboardInterrupt
 
-        m = Command()
-        m.action = "speed"
+        m = RPMs()
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_z]:
-            m.arg1 = SPEED
-            m.arg2 = SPEED
-            m.arg3 = SPEED
-            m.arg4 = SPEED
+            m.front_left_rpm = DEFAULT_RPM
+            m.front_right_rpm = DEFAULT_RPM
+            m.back_right_rpm = DEFAULT_RPM
+            m.back_left_rpm = DEFAULT_RPM
         elif keys[pygame.K_s]:
-            m.arg1 = -SPEED
-            m.arg2 = -SPEED
-            m.arg3 = -SPEED
-            m.arg4 = -SPEED
+            m.front_left_rpm = -DEFAULT_RPM
+            m.front_right_rpm = -DEFAULT_RPM
+            m.back_right_rpm = -DEFAULT_RPM
+            m.back_left_rpm = -DEFAULT_RPM
         elif keys[pygame.K_q]:
-            m.arg1 = -SPEED
-            m.arg2 = SPEED
-            m.arg3 = -SPEED
-            m.arg4 = SPEED
+            m.front_left_rpm = -DEFAULT_RPM
+            m.front_right_rpm = DEFAULT_RPM
+            m.back_right_rpm = -DEFAULT_RPM
+            m.back_left_rpm = DEFAULT_RPM
         elif keys[pygame.K_d]:
-            m.arg1 = SPEED
-            m.arg2 = -SPEED
-            m.arg3 = SPEED
-            m.arg4 = -SPEED
+            m.front_left_rpm = DEFAULT_RPM
+            m.front_right_rpm = -DEFAULT_RPM
+            m.back_right_rpm = DEFAULT_RPM
+            m.back_left_rpm = -DEFAULT_RPM
         elif keys[pygame.K_a]:
-            m.arg1 = -SPEED
-            m.arg2 = SPEED
-            m.arg3 = SPEED
-            m.arg4 = -SPEED
+            m.front_left_rpm = -DEFAULT_RPM
+            m.front_right_rpm = DEFAULT_RPM
+            m.back_right_rpm = DEFAULT_RPM
+            m.back_left_rpm = -DEFAULT_RPM
         elif keys[pygame.K_e]:
-            m.arg1 = SPEED
-            m.arg2 = -SPEED
-            m.arg3 = -SPEED
-            m.arg4 = SPEED
+            m.front_left_rpm = DEFAULT_RPM
+            m.front_right_rpm = -DEFAULT_RPM
+            m.back_right_rpm = -DEFAULT_RPM
+            m.back_left_rpm = DEFAULT_RPM
         else:
-            m.arg1 = 0
-            m.arg2 = 0
-            m.arg3 = 0
-            m.arg4 = 0
+            m.front_left_rpm = 0
+            m.front_right_rpm = 0
+            m.back_right_rpm = 0
+            m.back_left_rpm = 0
 
         self.pub_cmd.publish(m)
-        self.get_logger().info(f"Sent {m.action} with arg {m.arg1}, {m.arg2}, {m.arg3}, {m.arg4}")
+        self.get_logger().info(f"Sent RPMs {m.front_left_rpm}, {m.front_right_rpm}, {m.back_right_rpm}, {m.back_left_rpm}")
 
 
 def main():
