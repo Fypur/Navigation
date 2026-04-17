@@ -96,8 +96,8 @@ class LidarNode(Node):
             msg_obs.distances = dists_obs
             self.pub_obstacles.publish(msg_obs)
         
-        self.get_logger().info(f"Scan reçu : {len(dists_all)} pts valides, {len(dists_obs)} obstacles (<{self.obs_range}m)")
-        # self.get_logger().info(f"angle_max={scan.angle_max} rad, angle_min={scan.angle_min} rad, angle_inc={scan.angle_increment} rad")
+        self.get_logger().debug(f"Scan reçu : {len(dists_all)} pts valides, {len(dists_obs)} obstacles (<{self.obs_range}m)")
+        # self.get_logger().debug(f"angle_max={scan.angle_max} rad, angle_min={scan.angle_min} rad, angle_inc={scan.angle_increment} rad")
         
 def main():
     rclpy.init()
