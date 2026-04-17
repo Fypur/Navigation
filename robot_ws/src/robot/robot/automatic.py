@@ -12,7 +12,7 @@ Publie sur :
 import math
 from robot.steady_node import SteadyNode
 import rclpy
-from msgs.msg import Lidar, Command
+from msgs.msg import Lidar, Command, RPMs
 from geometry_msgs.msg import Pose2D
 
 # -- Paramètres à ajuster --
@@ -55,7 +55,7 @@ class Automatic(SteadyNode):
         )
         
         # -- Publication vers le noeud control --
-        self.pub_cmd = self.create_publisher(Command, '/robot/command', 10)
+        self.pub_cmd = self.create_publisher(RPMs, '/robot/command', 10)
         
         # -- Etat --
         self.obstacle_angles: list[float] = []
@@ -165,7 +165,7 @@ class Automatic(SteadyNode):
     # -- Publication -- 
     def _publish_command(self, vx: float, vy: float, w: float):
         """
-        Convertit (vx, vy, w) en 4 vitesses PWM via la cinématique et publie un Command vers le
+        Convertit (vx, vy, w) en 4 vitesses PWM via la cinématique et publie un RPMs vers le
         topic /robot/command.
         
         Convention des arguements (identique à la console):
@@ -191,25 +191,25 @@ class Automatic(SteadyNode):
         rr /= max_val
         rl /= max_val
         
-        def to_pwm(v: float):
-            return int(v * MAX_SPEED)
+        #def to_pwm(v: float):
+            #return int(v * MAX_SPEED)
         
-        cmd = Command()
-        cmd.action = 'speed'
-        cmd.arg1 = to_pwm(fl)
-        cmd.arg2 = to_pwm(fr)
-        cmd.arg3 = to_pwm(rr)
-        cmd.arg4 = to_pwm(rl)
+        cmd = RPMs()
+        cmd.action = 'setrpm'
+        cmd.front_left_rpm = fl
+        cmd.front_right_rpm = fr
+        cmd.back_right_rpm = rr
+        cmd.back_left_rpm = rl
         
         self.pub_cmd.publish(cmd)
         self.get_logger().debug(
-            f"APF -> FL={cmd.arg1}, FR={cmd.arg2}, RR={cmd.arg3}, RL={cmd.arg4}"
+            f"APF -> FL={cmd.front_left_rpm}, FR={cmd.front_right_rpm}, RR={cmd.back_right_rpm}, RL={cmd.back_left_rpm}"
         )
     
     def _stop(self):
-        cmd = Command()
-        cmd.action = 'speed'
-        cmd.arg1 = cmd.arg2 = cmd.arg3 = cmd.arg4 = 0
+        cmd = RPMs()
+        cmd.action = 'sterpm'
+        cmd.front_left_rpm = cmd.front_right_rpm = cmd.back_right_rpm = cmd.back_left_rpm = 0
         self.pub_cmd.publish(cmd)
         
     # -- Public -- 
