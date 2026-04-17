@@ -1,9 +1,8 @@
 import rclpy
 from robot.steady_node import SteadyNode
-from msgs.msg import Command
+from msgs.msg import RPMs
 
-DEFAULT_SPEED = 200
-TURN_ANGLE = 15.0
+DEFAULT_RPM = 150.0
 
 
 class Console(SteadyNode):
@@ -12,7 +11,7 @@ class Console(SteadyNode):
         super().__init__("console")
         self.last_cmd = "speed"
 
-        self.pub_cmd = self.create_publisher(Command, "/robot/command", 10)
+        self.pub_cmd = self.create_publisher(RPMs, "/robot/command", 10)
 
         # This is technically bad since it blocks the main thread
         # But I had issues with the previous version with some desyncs
@@ -23,7 +22,7 @@ class Console(SteadyNode):
     # ---------------- UI ----------------
     def show_menu(self):
         log = "\n==========================\n"
-        log += "Commands: speed | stop\n"
+        log += "Commands: setrpm | stop\n"
         log += f"Last : {self.last_cmd}\n"
         log += "==========================\n"
         self.get_logger().info(log)
@@ -41,36 +40,34 @@ class Console(SteadyNode):
             self.process(cmd)
 
     def process(self, cmd: str):
-        m = Command()
+        m = RPMs()
 
         split_cmd = cmd.strip().split(" ")
         command_name = split_cmd[0]
 
-        def get_arg_or_default_value(arg_index: int, default_value: int):
+        def get_arg_or_default_value(arg_index: int, default_value: float):
             if len(split_cmd) - 1 < arg_index:
                 return default_value
             try:
-                return int(split_cmd[arg_index])
+                return float(split_cmd[arg_index])
             except:
                 self.get_logger().error("Couldn't parse given command args.")
                 return default_value
 
-        if command_name == "speed":
-            m.action = "speed"
-            m.arg1 = get_arg_or_default_value(1, DEFAULT_SPEED)
-            m.arg2 = get_arg_or_default_value(2, DEFAULT_SPEED)
-            m.arg3 = get_arg_or_default_value(3, DEFAULT_SPEED)
-            m.arg4 = get_arg_or_default_value(4, DEFAULT_SPEED)
+        if command_name == "setrpm":
+            m.front_left_rpm = get_arg_or_default_value(1, DEFAULT_RPM)
+            m.front_right_rpm = get_arg_or_default_value(2, DEFAULT_RPM)
+            m.back_right_rpm = get_arg_or_default_value(3, DEFAULT_RPM)
+            m.back_left_rpm = get_arg_or_default_value(4, DEFAULT_RPM)
         elif command_name == "stop":
-            m.action = "speed"
-            m.arg1 = 0
-            m.arg2 = 0
-            m.arg3 = 0
-            m.arg4 = 0
+            m.front_left_rpm = 0.
+            m.front_right_rpm = 0.
+            m.back_right_rpm = 0.
+            m.back_left_rpm = 0.
         else:
             self.get_logger().error(f"Unknown command \"{command_name}\"")
             return
-        
+
         self.pub_cmd.publish(m)
         #self.get_logger().info(f"Sent: {m.action} with arg1 {m.arg1}")
 
