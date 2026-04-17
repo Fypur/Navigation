@@ -70,7 +70,6 @@ class LidarNode(Node):
         
         for r in scan.ranges:
             # On filtre les valeurs invalides
-            # if math.isfinite(r) and self.min_dist <= r <= self.max_dist:
             if math.isfinite(r):
                 # on garde les angles en radians ici
                 angles_all.append(angle)

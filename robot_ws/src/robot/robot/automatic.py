@@ -15,30 +15,30 @@ import rclpy
 from msgs.msg import Lidar, Command
 from geometry_msgs.msg import Pose2D
 
-#-- Paramètres à ajuster --
+# -- Paramètres à ajuster --
 
-# Cible à atteindre (en mètres dans le repère de départ)
+# -- Cible à atteindre (en mètres dans le repère de départ) --
 GOAL_X = 1.0
 GOAL_Y = 0.0
 
-# Champ attractif
-K_ATT = 1.5 # gain d'attraction
-GOAL_RADIUS = 0.1 # distance en mètres en-dessous de laquelle la cible est considérée comme atteinte
+# -- Champ attractif --
+K_ATT = 1.5         # gain d'attraction
+GOAL_RADIUS = 0.1   # distance en mètres en-dessous de laquelle la cible est considérée comme atteinte
 
-# Champ répulsif
-K_REP = 0.8 # gain répulsif
-D0 = 0.5 # rayon d'influence des obstacles en mètres : DOIT correspondre à obstacle_range du noeud lidar
+# -- Champ répulsif --
+K_REP = 0.8     # gain répulsif
+D0 = 0.5        # rayon d'influence des obstacles en mètres : DOIT correspondre à obstacle_range du noeud lidar
 MIN_DIST = 0.05 # distance plancher pour pas diviser par 0
 
-# Conversion force -> consigne PWM
-MAX_SPEED = 200 # valeur PWM max envoyée au noeud control (entier, même echelle que la console)
+# -- Conversion force -> consigne PWM --
+MAX_SPEED = 200     # valeur PWM max envoyée au noeud control (entier, même echelle que la console)
 MAX_LINEAR_FORCE = 3.0
 MAX_ANGULAR_FORCE = 2.0
 
-# Rayon approximatif du robot (m)
+# -- Rayon approximatif du robot (m) --
 ROBOT_RADIUS = 0.15
 
-# Fréquance de la boucle de contrôle
+# -- Fréquance de la boucle de contrôle --
 PUBLISH_HZ = 10.0
 
 class Automatic(SteadyNode):
@@ -46,7 +46,7 @@ class Automatic(SteadyNode):
     def __init__(self):
         super().__init__('automatic')
         
-        # Abonnements
+        # -- Abonnements --
         self.create_subscription(
             Lidar, '/robot/lidar_obstacles', self.lidar_callback, 1
         )
@@ -54,10 +54,10 @@ class Automatic(SteadyNode):
             Pose2D, '/robot/pos', self.pos_callback, 10
         )
         
-        # Publication vers le noeud control
+        # -- Publication vers le noeud control --
         self.pub_cmd = self.create_publisher(Command, '/robot/command', 10)
         
-        # Etat
+        # -- Etat --
         self.obstacle_angles: list[float] = []
         self.obstacle_distances: list[float] = []
         self.robot_x: float = 0.0
@@ -75,7 +75,7 @@ class Automatic(SteadyNode):
             f"Noeud Automatic lancé - cible : ({self.goal_x:.2f},{self.goal_y:.2f})"
         )
         
-    #-- Callbacks --
+    # -- Callbacks --
     
     def lidar_callback(self, msg:Lidar):
         self.obstacle_angles = list(msg.angles)
@@ -111,7 +111,7 @@ class Automatic(SteadyNode):
         vx, vy, w = self._force_to_velocity(fx, fy)
         self._publish_command(vx, vy, w)
         
-    #-- APF --
+    # -- APF --
     def _compute_apf(self, dx_goal: float, dy_goal: float):
         """
         Calcule la force totale (fx, fy) dans le repère 'monde', celui du départ du robot
@@ -142,7 +142,7 @@ class Automatic(SteadyNode):
         return fx_att + fx_rep, fy_att + fy_rep
         
         
-    #-- Conversion force -> vitesse --
+    # -- Conversion force -> vitesse --
     def _force_to_velocity(self, fx: float, fy: float):
         """
         Projette la force dans le repère robot et calcule la vitesse angulaire pour aligner le cap.
@@ -162,7 +162,7 @@ class Automatic(SteadyNode):
         return vx, vy, w
             
         
-    #-- Publication -- 
+    # -- Publication -- 
     def _publish_command(self, vx: float, vy: float, w: float):
         """
         Convertit (vx, vy, w) en 4 vitesses PWM via la cinématique et publie un Command vers le
@@ -212,7 +212,7 @@ class Automatic(SteadyNode):
         cmd.arg1 = cmd.arg2 = cmd.arg3 = cmd.arg4 = 0
         self.pub_cmd.publish(cmd)
         
-    #-- Public -- 
+    # -- Public -- 
     def set_goal(self, x: float, y: float):
         self.goal_x = x
         self.goal_y = y
@@ -220,7 +220,7 @@ class Automatic(SteadyNode):
         self.get_logger().info(f"Nouvelle cible : ({x:.2f},{y:.2f})")
         
         
-#-- Fonctions utilitaires --
+# -- Fonctions utilitaires --
 
 def _angle_wrap(angle: float) -> float:
     """Ramène un angle à l'intervalle [-pi, pi]"""
