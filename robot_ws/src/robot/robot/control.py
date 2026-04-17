@@ -33,7 +33,7 @@ class Control(SteadyNode):
             self.last_time = t
 
             error = target_rpm - current_rpm
-            
+
             self.accumulated_error += error * deltaTime
             if self.accumulated_error > self.max_accumulated_error:
                 self.accumulated_error = self.max_accumulated_error
@@ -43,7 +43,7 @@ class Control(SteadyNode):
             derivative = (error - self.last_error) / deltaTime
 
             pwm = int(self.basePWMFunction(current_rpm) + self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
-            
+
             if pwm > 255:
                 pwm = 255
             elif pwm < -255:
@@ -51,7 +51,7 @@ class Control(SteadyNode):
 
             return pwm
 
-            
+
 
     def __init__(self):
         super().__init__("control")
@@ -87,15 +87,23 @@ class Control(SteadyNode):
         self.pub_health.publish(Health(state="Hello", name="control"))
 
     def cmd_callback(self, cmd_msg: RPMs):
-        # self.get_logger().info(f"received {cmd_msg.action} with arg {cmd_msg.arg1}")
+        self.get_logger().info(
+            f"received rpm order {cmd_msg.front_left_rpm}, {cmd_msg.front_right_rpm}, {cmd_msg.back_right_rpm}, {cmd_msg.back_left_rpm}"
+        )
 
         wheel_msg = WheelSpeeds()
 
-        wheel_msg.front_left_wheel_speed = int(self.binary_search(self.front_left_RPM, cmd_msg.front_left_rpm))
-        wheel_msg.front_right_wheel_speed = int(self.binary_search(self.front_right_RPM, cmd_msg.front_right_rpm))
-        wheel_msg.back_right_wheel_speed = int(self.binary_search(self.back_right_RPM, cmd_msg.back_right_rpm))
-        wheel_msg.back_left_wheel_speed = int(self.binary_search(self.back_left_RPM, cmd_msg.back_left_rpm))
+        def matchspeed(rpmfunc, msg_rpm):
+            return int(copysign(self.binary_search(rpmfunc, abs(msg_rpm)), msg_rpm))
 
+        wheel_msg.front_left_wheel_speed = matchspeed(self.front_left_RPM, cmd_msg.front_left_rpm)
+        wheel_msg.front_right_wheel_speed = matchspeed(self.front_right_RPM, cmd_msg.front_right_rpm)
+        wheel_msg.back_right_wheel_speed = matchspeed(self.back_right_RPM, cmd_msg.back_right_rpm)
+        wheel_msg.back_left_wheel_speed = matchspeed(self.back_left_RPM, cmd_msg.back_left_rpm)
+
+        self.get_logger().debug(
+            f"Sent wheel speeds {wheel_msg.front_left_wheel_speed}, {wheel_msg.front_right_wheel_speed}, {wheel_msg.back_right_wheel_speed}, {wheel_msg.back_left_wheel_speed}, "
+        )
 
         """if cmd_msg.action == "speed":
             wheel_msg.front_left_wheel_speed = self.match_front_right(self.front_left_RPM, cmd_msg.arg1)
@@ -151,8 +159,8 @@ class Control(SteadyNode):
         """
         if (target_RPM == 0):
             return 0.
-        
-        return self.binary_search(rpm_function, target_RPM)   
+
+        return self.binary_search(rpm_function, target_RPM)
 
     def binary_search(self, func, target):
         # Binary Search to find the required speed
