@@ -38,7 +38,7 @@ class AsservVisualizer(SteadyNode):
         def set_command(self, rpm_cmd):
             if self.cmd_line:
                 dpg.delete_item(self.cmd_line)
-            self.cmd_line = dpg.add_hline_series([rpm_cmd], parent=self.y_axis)
+            self.cmd_line = dpg.add_inf_line_series([rpm_cmd], horizontal=True, parent=self.y_axis)
 
 
     def __init__(self):
@@ -60,10 +60,10 @@ class AsservVisualizer(SteadyNode):
         # --- ROS Setup ---
         self.create_subscription(RPMs, '/robot/encoders', self.encoder_callback, 10)
         self.create_subscription(RPMs, '/robot/command', self.cmd_callback, 10)
-        self.get_logger().info("Graphs node successfully launched")
+        self.get_logger().info("Asserv visualizer node successfully launched")
 
     def encoder_callback(self, msg: RPMs):
-        self.get_logger().info(
+        self.get_logger().debug(
             f"received measured RPMS: {msg.front_left_rpm}, {msg.front_right_rpm}, {msg.back_right_rpm}, {msg.back_left_rpm}")
 
         self.wheelPlots[0].add_data(msg.front_left_rpm)

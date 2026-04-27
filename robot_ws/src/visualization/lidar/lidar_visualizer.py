@@ -30,7 +30,7 @@ class LidarVisualizer(SteadyNode):
 
         # --- ROS Setup ---
         self.create_subscription(Lidar, '/robot/lidar', self.lidar_callback, 10)
-        self.get_logger().info("Graphs node successfully launched")
+        self.get_logger().info("Lidar visualizer node successfully launched")
 
     def lidar_callback(self, msg: Lidar):
         xs = []
