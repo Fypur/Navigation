@@ -21,11 +21,12 @@ class PinMap(IntEnum):
 class Encoders(SteadyNode):
 
     class EncoderSignalPin:
-        def __init__(self, a_pin: int, b_pin: int, logger) -> None:
+        def __init__(self, a_pin: int, b_pin: int, reversed: bool, logger) -> None:
 
             # pin setup
             self.a_pin = a_pin
             self.b_pin = b_pin
+            self.reversed = reversed
             GPIO.setup(self.a_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             GPIO.setup(self.b_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
@@ -64,7 +65,8 @@ class Encoders(SteadyNode):
             else:
                 self.rpm = 0.
 
-            return self.rpm
+            reversed_factor = -1 if reversed else 0
+            return self.rpm * reversed_factor
 
 
     def __init__(self):
@@ -73,10 +75,10 @@ class Encoders(SteadyNode):
         GPIO.setmode(GPIO.BCM)
         logger = self.get_logger()
         self.encoderSignalPins = [
-            self.EncoderSignalPin(PinMap.ENCODER_FRONT_LEFT_A, PinMap.ENCODER_FRONT_LEFT_B, logger),
-            self.EncoderSignalPin(PinMap.ENCODER_FRONT_RIGHT_A, PinMap.ENCODER_FRONT_RIGHT_B, logger),
-            self.EncoderSignalPin(PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, logger),
-            self.EncoderSignalPin(PinMap.ENCODER_BACK_LEFT_A, PinMap.ENCODER_BACK_LEFT_B, logger),
+            self.EncoderSignalPin(PinMap.ENCODER_FRONT_LEFT_A, PinMap.ENCODER_FRONT_LEFT_B, False, logger),
+            self.EncoderSignalPin(PinMap.ENCODER_FRONT_RIGHT_A, PinMap.ENCODER_FRONT_RIGHT_B, True, logger),
+            self.EncoderSignalPin(PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, False, logger),
+            self.EncoderSignalPin(PinMap.ENCODER_BACK_LEFT_A, PinMap.ENCODER_BACK_LEFT_B, False, logger),
         ]
 
         self.pub = self.create_publisher(RPMs, "/robot/encoders", 10)
