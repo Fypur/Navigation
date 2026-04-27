@@ -1,6 +1,6 @@
 import rclpy
 from robot.steady_node import SteadyNode
-from msgs.msg import RPMs
+from msgs.msg import RPMs, AsservParamChange
 
 DEFAULT_RPM = 150.0
 
@@ -12,20 +12,22 @@ class Console(SteadyNode):
         self.last_cmd = "setrpm"
 
         self.pub_cmd = self.create_publisher(RPMs, "/robot/command", 10)
+        self.pub_asserv_param = self.create_publisher(AsservParamChange, "robot/asserv_params", 10)
 
         # This is technically bad since it blocks the main thread
         # But I had issues with the previous version with some desyncs
         # Console shouldn't really be receiving data anyways so i'd much
         # rather leave it like this. Feel free to change it though
+        self.get_logger().info("Type help to get help on what commands exist and how to use them.")
         self.input_loop()
 
     # ---------------- UI ----------------
     def show_menu(self):
-        log = "\n==========================\n"
-        log += "Commands: setrpm | stop\n"
-        log += f"Last : {self.last_cmd}\n"
-        log += "==========================\n"
-        self.get_logger().info(log)
+        print("\n==========================\n")
+        #log += "Commands: setrpm | stop | setkp | setki | setkd | help \n"
+        #log += f"Last : {self.last_cmd}\n"
+        #log += "==========================\n"
+        # self.get_logger().info(log)
 
     def input_loop(self):
         while rclpy.ok():
@@ -37,18 +39,23 @@ class Console(SteadyNode):
             else:
                 self.last_cmd = cmd
 
-            self.process(cmd)
+            try:
+                self.process(cmd)
+            except:
+                self.get_logger().error("Couldn't parse given command. Check if your arguments have the right type !")
 
     def process(self, cmd: str):
-        m = RPMs()
+
 
         split_cmd = cmd.strip().split(" ")
         command_name = split_cmd[0]
 
         def get_arg(arg_index: int):
             return float(split_cmd[arg_index])
+            
 
         if command_name == "setrpm":
+            m = RPMs()
             if len(split_cmd) == 1:
                 m.front_left_rpm = DEFAULT_RPM
                 m.front_right_rpm = DEFAULT_RPM
@@ -66,17 +73,52 @@ class Console(SteadyNode):
                 m.back_left_rpm = get_arg(4)
             else:
                 self.get_logger().error(f"The setrpm command either takes none, one or four arguments")
+
+            self.pub_cmd.publish(m)
         elif command_name == "stop":
+            m = RPMs()
             m.front_left_rpm = 0.
             m.front_right_rpm = 0.
             m.back_right_rpm = 0.
             m.back_left_rpm = 0.
+
+            self.pub_cmd.publish(m)
+        elif command_name.startswith("set"):
+            if len(split_cmd) != 3:
+                self.get_logger().error(f"set... commands takes 2 arguments")
+                return
+            m = AsservParamChange()
+
+            if split_cmd[1] != "frontleft" and split_cmd[1] != "frontright"and split_cmd[1] != "backright" and split_cmd[1] != "backleft":
+                self.get_logger().error(f"Wrong wheel id used ! Use frontleft, frontright, backright or backleft")
+                return
+
+            m.wheel_id = split_cmd[1]
+
+            if command_name == "setkp":
+                m.param_id = "kp"
+            elif command_name == "setki":
+                m.param_id = "ki"
+            elif command_name == "setkd":
+                m.param_id = "kd"
+
+            m.new_value = get_arg(2)
+        elif command_name == "help":
+            self.get_logger().info("""
+Commands :
+- setrpm : Sets the RPMS of the wheels to the given speeds. Can be used like so :
+    >> setrpm <front_left_wheel_rpm> <front_right_wheel_rpm> <back_right_wheel_rpm> <back_left_wheel_rpm> 
+    >> setrpm <all_wheels_rpm>
+    >> setrpm
+    This last one is setting all wheels' rpms to 150
+- stop: equivalent to setrpm 0
+- setkp, setki, setkd: sets a coefficient for the servoing (asservissement) of a given wheel. Can be used like so :
+    >> setkp frontleft 0.3
+    >> setkd backright 2.3                     
+""")
         else:
             self.get_logger().error(f"Unknown command \"{command_name}\"")
             return
-
-        self.pub_cmd.publish(m)
-        #self.get_logger().info(f"Sent: {m.action} with arg1 {m.arg1}")
 
 
 def main():

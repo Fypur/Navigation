@@ -1,7 +1,7 @@
 import rclpy
 from math import copysign
 from robot.steady_node import SteadyNode
-from msgs.msg import Health, Command, WheelSpeeds, RPMs
+from msgs.msg import WheelSpeeds, RPMs, AsservParamChange
 from time import time
 from typing import Callable
 
@@ -16,9 +16,9 @@ class Control(SteadyNode):
         # Ce PID n'est là que pour compenser des petites erreurs, la formule finale pour calc la PMW est
         # PWM = int(basePWM + WheelControl.calcPWM())
         def __init__(self, basePWMFunction: Callable[[float], float]) -> None:
-            self.kp = 0.1
-            self.ki = 0.01
-            self.kd = 0.05
+            self.kp = 0.3
+            self.ki = 0.0
+            self.kd = 0.0
             self.accumulated_error = 0.0
             self.last_error = 0.0
             self.max_accumulated_error = 10.0
@@ -60,6 +60,7 @@ class Control(SteadyNode):
 
         self.pub_wheels = self.create_publisher(WheelSpeeds, "/robot/wheels", 10)
         self.sub_encoders = self.create_subscription(RPMs, "/robot/encoders", self.encoders_callback, 10)
+        self.sub_asserv_params_change = self.create_subscription(AsservParamChange, "robot/asserv_params", self.asserv_param_change_callback, 10)
 
         self.create_subscription(RPMs, "/robot/command", self.cmd_callback, 10)
 
@@ -69,6 +70,13 @@ class Control(SteadyNode):
 
         def base_pwm(rpmfunc):
             return lambda rpm: int(copysign(self.binary_search(rpmfunc, abs(rpm)), rpm))
+
+        self.wheel_map = {
+            "frontleft": 0,
+            "frontright": 1,
+            "backright": 2,
+            "backleft": 3,
+        }
 
         self.wheelControls = [
             self.WheelControl(base_pwm(self.front_left_RPM)),
@@ -97,17 +105,23 @@ class Control(SteadyNode):
         self.wheelControls[3].current_rpm = msg.back_left_rpm
 
     def update_wheels(self):
-        #TODO: FAIRE ASSERVISSEMENT ICI AVEC LES ENCODEURS INCREMENTAUX
-        #self.get_logger().info("sent speeds " + str(self.lastWheelMsg.wheel1_speed))
-
         msg = WheelSpeeds()
         msg.front_left_wheel_speed = self.wheelControls[0].calcPWM()
         msg.front_right_wheel_speed = self.wheelControls[1].calcPWM()
         msg.back_right_wheel_speed = self.wheelControls[2].calcPWM()
         msg.back_left_wheel_speed = self.wheelControls[3].calcPWM()
 
-
         self.pub_wheels.publish(msg)
+
+    def asserv_param_change_callback(self, msg: AsservParamChange):
+        wheel_control = self.wheelControls[self.wheel_map[msg.wheel_id]]
+        if msg.param_id == "kp":
+            wheel_control.kp = msg.new_value
+        elif msg.param_id == "kd":
+            wheel_control.kd = msg.new_value
+        elif msg.param_id == "ki":
+            wheel_control.kp = msg.new_value
+
 
     def front_left_RPM(self, speed: int):
         if speed == 0:
