@@ -27,13 +27,13 @@ class AsservVisualizer(SteadyNode):
             self.time += 0.1 # Assuming 10hz
             self.data_x = np.append(self.data_x, self.time)
             self.data_y = np.append(self.data_y, rpm)
-            if len(self.data_x) > 200:
-                self.data_x = self.data_x[-200:]
-                self.data_y = self.data_y[-200:]
+            if len(self.data_x) > 100:
+                self.data_x = self.data_x[-100:]
+                self.data_y = self.data_y[-100:]
 
             dpg.set_value(self.line_series, [self.data_x, self.data_y])
+            dpg.set_axis_limits(self.y_axis, 0, 200)
             dpg.fit_axis_data(self.x_axis)
-            dpg.fit_axis_data(self.y_axis)
 
         def set_command(self, rpm_cmd):
             if self.cmd_line:
@@ -63,6 +63,9 @@ class AsservVisualizer(SteadyNode):
         self.get_logger().info("Graphs node successfully launched")
 
     def encoder_callback(self, msg: RPMs):
+        self.get_logger().info(
+            f"received measured RPMS: {msg.front_left_rpm}, {msg.front_right_rpm}, {msg.back_right_rpm}, {msg.back_left_rpm}")
+
         self.wheelPlots[0].add_data(msg.front_left_rpm)
         self.wheelPlots[1].add_data(msg.front_right_rpm)
         self.wheelPlots[2].add_data(msg.back_right_rpm)

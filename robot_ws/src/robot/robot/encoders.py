@@ -65,7 +65,7 @@ class Encoders(SteadyNode):
             else:
                 self.rpm = 0.
 
-            reversed_factor = -1 if reversed else 0
+            reversed_factor = -1 if self.reversed else 0
             return self.rpm * reversed_factor
 
 

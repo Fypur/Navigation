@@ -45,20 +45,27 @@ class Console(SteadyNode):
         split_cmd = cmd.strip().split(" ")
         command_name = split_cmd[0]
 
-        def get_arg_or_default_value(arg_index: int, default_value: float):
-            if len(split_cmd) - 1 < arg_index:
-                return default_value
-            try:
-                return float(split_cmd[arg_index])
-            except:
-                self.get_logger().error("Couldn't parse given command args.")
-                return default_value
+        def get_arg(arg_index: int):
+            return float(split_cmd[arg_index])
 
         if command_name == "setrpm":
-            m.front_left_rpm = get_arg_or_default_value(1, DEFAULT_RPM)
-            m.front_right_rpm = get_arg_or_default_value(2, DEFAULT_RPM)
-            m.back_right_rpm = get_arg_or_default_value(3, DEFAULT_RPM)
-            m.back_left_rpm = get_arg_or_default_value(4, DEFAULT_RPM)
+            if len(split_cmd) == 1:
+                m.front_left_rpm = DEFAULT_RPM
+                m.front_right_rpm = DEFAULT_RPM
+                m.back_right_rpm = DEFAULT_RPM
+                m.back_left_rpm = DEFAULT_RPM
+            elif len(split_cmd) == 2:
+                m.front_left_rpm = get_arg(1)
+                m.front_right_rpm = get_arg(1)
+                m.back_right_rpm = get_arg(1)
+                m.back_left_rpm = get_arg(1)
+            elif len(split_cmd) == 5:
+                m.front_left_rpm = get_arg(1)
+                m.front_right_rpm = get_arg(2)
+                m.back_right_rpm = get_arg(3)
+                m.back_left_rpm = get_arg(4)
+            else:
+                self.get_logger().error(f"The setrpm command either takes none, one or four arguments")
         elif command_name == "stop":
             m.front_left_rpm = 0.
             m.front_right_rpm = 0.
