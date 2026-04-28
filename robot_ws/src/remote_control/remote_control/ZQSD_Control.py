@@ -4,7 +4,7 @@ from msgs.msg import RPMs
 from rclpy.clock import Clock, ClockType
 import pygame
 
-DEFAULT_RPM = 167
+DEFAULT_RPM = 167.0
 
 class ZQSD_Control(Node):
 
@@ -60,10 +60,10 @@ class ZQSD_Control(Node):
             m.back_right_rpm = -DEFAULT_RPM
             m.back_left_rpm = DEFAULT_RPM
         else:
-            m.front_left_rpm = 0
-            m.front_right_rpm = 0
-            m.back_right_rpm = 0
-            m.back_left_rpm = 0
+            m.front_left_rpm = 0.0
+            m.front_right_rpm = 0.0
+            m.back_right_rpm = 0.0
+            m.back_left_rpm = 0.0
 
         self.pub_cmd.publish(m)
         self.get_logger().info(f"Sent RPMs {m.front_left_rpm}, {m.front_right_rpm}, {m.back_right_rpm}, {m.back_left_rpm}")

@@ -9,11 +9,11 @@ from msgs.msg import Lidar
 class LidarVisualizer(SteadyNode):
 
     def __init__(self):
-        super().__init__("serial")
+        super().__init__("Lidar Visualizer")
 
         # --- DearPyGui Setup ---
         dpg.create_context()
-        dpg.create_viewport(title='Lidar Visualization', width=800, height=800)
+        dpg.create_viewport(title='lidar_visualization', width=800, height=800)
         dpg.setup_dearpygui()
 
         # Create the window and graph on initialization
@@ -30,7 +30,7 @@ class LidarVisualizer(SteadyNode):
 
         # --- ROS Setup ---
         self.create_subscription(Lidar, '/robot/lidar', self.lidar_callback, 10)
-        self.get_logger().info("Graphs node successfully launched")
+        self.get_logger().info("Lidar visualizer node successfully launched")
 
     def lidar_callback(self, msg: Lidar):
         xs = []
