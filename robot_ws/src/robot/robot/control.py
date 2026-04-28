@@ -43,7 +43,9 @@ class Control(SteadyNode):
             elif self.accumulated_error < self.min_accumulated_error:
                 self.accumulated_error = self.min_accumulated_error
 
-            derivative = (error - self.last_error) / deltaTime
+            derivative = 0
+            if deltaTime != 0:
+                derivative = (error - self.last_error) / deltaTime
 
             pwm = int(self.basePWMFunction(self.target_rpm) + self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
 
