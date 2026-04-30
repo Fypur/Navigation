@@ -1,6 +1,8 @@
 import rclpy
 from robot.steady_node import SteadyNode
 from msgs.msg import RPMs, AsservParamChange
+from geometry_msgs.msg import Point
+from std_msgs.msg import Bool
 
 DEFAULT_RPM = 150.0
 
@@ -13,6 +15,8 @@ class Console(SteadyNode):
 
         self.pub_cmd = self.create_publisher(RPMs, "/robot/command", 10)
         self.pub_asserv_param = self.create_publisher(AsservParamChange, "robot/asserv_params", 10)
+        self.pub_goal = self.create_publisher(Point, "/robot/automatic_goal", 10)
+        self.pub_enable_auto = self.create_publisher(Bool, "/robot/enable_auto", 10)
 
         # This is technically bad since it blocks the main thread
         # But I had issues with the previous version with some desyncs
@@ -53,8 +57,34 @@ class Console(SteadyNode):
         def get_arg(arg_index: int):
             return float(split_cmd[arg_index])
             
+        if command_name == "manual":
+            msg = Bool()
+            msg.data = False
+            self.pub_enable_auto.publish(msg)
+            self.get_logger().info("Manual mode activated.")
 
-        if command_name == "setrpm":
+        elif command_name == "automatic":
+            if len(split_cmd) != 3:
+                self.get_logger().error("The automatic command takes exactly 2 arguments (x and y).")
+                return
+            
+            # automatic.py s'active
+            msg_enable = Bool()
+            msg_enable.data = True
+            self.pub_enable_auto.publish(msg_enable)
+            
+            # On envoie la cible
+            goal_msg = Point()
+            goal_msg.x = get_arg(1)
+            goal_msg.y = get_arg(2)
+            goal_msg.z = 0.0
+            self.pub_goal.publish(goal_msg)
+            
+        elif command_name == "setrpm":
+            msg = Bool()
+            msg.data = False
+            self.pub_enable_auto.publish(msg)
+            
             m = RPMs()
             if len(split_cmd) == 1:
                 m.front_left_rpm = DEFAULT_RPM
@@ -75,7 +105,12 @@ class Console(SteadyNode):
                 self.get_logger().error(f"The setrpm command either takes none, one or four arguments")
 
             self.pub_cmd.publish(m)
+            
         elif command_name == "stop":
+            msg = Bool()
+            msg.data = False
+            self.pub_enable_auto.publish(msg)
+            
             m = RPMs()
             m.front_left_rpm = 0.
             m.front_right_rpm = 0.
@@ -83,6 +118,7 @@ class Console(SteadyNode):
             m.back_left_rpm = 0.
 
             self.pub_cmd.publish(m)
+            
         elif command_name.startswith("set"):
             if len(split_cmd) != 3:
                 self.get_logger().error(f"set... commands takes 2 arguments")
@@ -103,9 +139,12 @@ class Console(SteadyNode):
                 m.param_id = "kd"
 
             m.new_value = get_arg(2)
+            
         elif command_name == "help":
             self.get_logger().info("""
 Commands :
+- automatic: Sends the robot to a target position. Can be used like so :
+    >> automatic <x_target> <y_target>
 - setrpm : Sets the RPMS of the wheels to the given speeds. Can be used like so :
     >> setrpm <front_left_wheel_rpm> <front_right_wheel_rpm> <back_right_wheel_rpm> <back_left_wheel_rpm> 
     >> setrpm <all_wheels_rpm>
