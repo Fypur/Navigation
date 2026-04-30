@@ -214,6 +214,7 @@ class Automatic(SteadyNode):
         cmd.front_right_rpm = float(fr * MAX_RPM)
         cmd.back_right_rpm = float(rr * MAX_RPM)
         cmd.back_left_rpm = float(rl * MAX_RPM)
+ 
 
         self.pub_cmd.publish(cmd)
         self.get_logger().debug(
