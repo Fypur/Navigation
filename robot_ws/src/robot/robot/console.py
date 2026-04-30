@@ -15,7 +15,7 @@ class Console(SteadyNode):
         self.last_cmd = "setrpm"
 
         self.pub_cmd = self.create_publisher(RPMs, "/robot/command", 10)
-        self.pub_raw_cmd = self.create_publisher(RPMs, "/robot/raw_command", 10)
+        self.pub_raw_cmd = self.create_publisher(WheelSpeeds, "/robot/raw_command", 10)
         self.pub_asserv_param = self.create_publisher(AsservParamChange, "robot/asserv_params", 10)
         self.pub_goal = self.create_publisher(Point, "/robot/automatic_goal", 10)
         self.pub_enable_auto = self.create_publisher(Bool, "/robot/enable_auto", 10)
