@@ -52,7 +52,7 @@ class Simulation(Node):
         ]
         for wall in walls_segments:
             wall.elasticity = 0.5
-            wall.fricition = 0.5
+            wall.friction = 0.5
             # On palce les murs dans la catégorie 2
             wall.filter = pymunk.ShapeFilter(categories=0b10)
         
