@@ -219,7 +219,6 @@ class Automatic(SteadyNode):
             #return int(v * MAX_SPEED)
         
         cmd = RPMs()
-        cmd.action = 'setrpm'
         cmd.front_left_rpm = float(fl * MAX_SPEED)
         cmd.front_right_rpm = float(fr * MAX_SPEED)
         cmd.back_right_rpm = float(rr * MAX_SPEED)
@@ -232,7 +231,6 @@ class Automatic(SteadyNode):
     
     def _stop(self):
         cmd = RPMs()
-        cmd.action = 'setrpm'
         cmd.front_left_rpm = cmd.front_right_rpm = cmd.back_right_rpm = cmd.back_left_rpm = 0
         self.pub_cmd.publish(cmd)
         

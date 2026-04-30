@@ -28,12 +28,16 @@ class Control(SteadyNode):
             self.target_rpm = 0.
             self.current_rpm = 0.
             self.logger = logger
+            self.overriden_pwm: None | int = None  # Bypass asserv and just send a pwm
 
 
         def calcPWM(self) -> int:
             t = time()
             deltaTime = t - self.last_time
             self.last_time = t
+
+            if self.overriden_pwm != None:
+                return self.overriden_pwm
 
             error = self.target_rpm - self.current_rpm
 
@@ -57,7 +61,6 @@ class Control(SteadyNode):
             return pwm
 
 
-
     def __init__(self):
         super().__init__("control")
 
@@ -66,6 +69,7 @@ class Control(SteadyNode):
         self.sub_asserv_params_change = self.create_subscription(AsservParamChange, "robot/asserv_params", self.asserv_param_change_callback, 10)
 
         self.create_subscription(RPMs, "/robot/command", self.cmd_callback, 10)
+        self.create_subscription(WheelSpeeds, "/robot/raw_command", self.raw_cmd_callback, 10)
 
         self.t = self.create_timer(0.1, self.update_wheels)
 
@@ -95,10 +99,23 @@ class Control(SteadyNode):
             f"Set target RPMs {cmd_msg.front_left_rpm}, {cmd_msg.front_right_rpm}, {cmd_msg.back_right_rpm}, {cmd_msg.back_left_rpm}"
         )
 
+        for i in range(4):
+            self.wheelControls[i].overriden_pwm = None
+
         self.wheelControls[0].target_rpm = cmd_msg.front_left_rpm
         self.wheelControls[1].target_rpm = cmd_msg.front_right_rpm
         self.wheelControls[2].target_rpm = cmd_msg.back_right_rpm
         self.wheelControls[3].target_rpm = cmd_msg.back_left_rpm
+
+    def raw_cmd_callback(self, cmd_msg: WheelSpeeds):
+        self.get_logger().info(
+            f"Set target WheelSpeeds {cmd_msg.front_left_wheel_speed}, {cmd_msg.front_right_wheel_speed}, {cmd_msg.back_right_wheel_speed}, {cmd_msg.back_left_wheel_speed}"
+        )
+
+        self.wheelControls[0].overriden_pwm = cmd_msg.front_left_wheel_speed
+        self.wheelControls[1].overriden_pwm = cmd_msg.front_right_wheel_speed
+        self.wheelControls[2].overriden_pwm = cmd_msg.back_right_wheel_speed
+        self.wheelControls[3].overriden_pwm = cmd_msg.back_left_wheel_speed
 
 
     def encoders_callback(self, msg: RPMs):

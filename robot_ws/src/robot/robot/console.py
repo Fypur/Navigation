@@ -3,6 +3,7 @@ from robot.steady_node import SteadyNode
 from msgs.msg import RPMs, AsservParamChange
 from geometry_msgs.msg import Point
 from std_msgs.msg import Bool
+from msgs.msg import RPMs, AsservParamChange, WheelSpeeds
 
 DEFAULT_RPM = 150.0
 
@@ -14,6 +15,7 @@ class Console(SteadyNode):
         self.last_cmd = "setrpm"
 
         self.pub_cmd = self.create_publisher(RPMs, "/robot/command", 10)
+        self.pub_raw_cmd = self.create_publisher(RPMs, "/robot/raw_command", 10)
         self.pub_asserv_param = self.create_publisher(AsservParamChange, "robot/asserv_params", 10)
         self.pub_goal = self.create_publisher(Point, "/robot/automatic_goal", 10)
         self.pub_enable_auto = self.create_publisher(Bool, "/robot/enable_auto", 10)
@@ -56,35 +58,36 @@ class Console(SteadyNode):
 
         def get_arg(arg_index: int):
             return float(split_cmd[arg_index])
-            
+
+        def get_int_arg(arg_index: int):
+            return int(split_cmd[arg_index])
+
         if command_name == "manual":
             msg = Bool()
             msg.data = False
             self.pub_enable_auto.publish(msg)
             self.get_logger().info("Manual mode activated.")
-
         elif command_name == "automatic":
             if len(split_cmd) != 3:
                 self.get_logger().error("The automatic command takes exactly 2 arguments (x and y).")
                 return
-            
+
             # automatic.py s'active
             msg_enable = Bool()
             msg_enable.data = True
             self.pub_enable_auto.publish(msg_enable)
-            
+
             # On envoie la cible
             goal_msg = Point()
             goal_msg.x = get_arg(1)
             goal_msg.y = get_arg(2)
             goal_msg.z = 0.0
             self.pub_goal.publish(goal_msg)
-            
         elif command_name == "setrpm":
             msg = Bool()
             msg.data = False
             self.pub_enable_auto.publish(msg)
-            
+
             m = RPMs()
             if len(split_cmd) == 1:
                 m.front_left_rpm = DEFAULT_RPM
@@ -105,12 +108,27 @@ class Console(SteadyNode):
                 self.get_logger().error(f"The setrpm command either takes none, one or four arguments")
 
             self.pub_cmd.publish(m)
-            
+        elif command_name == "setpwm":
+            m = WheelSpeeds()
+            if len(split_cmd) == 2:
+                m.front_left_wheel_speed = get_int_arg(1)
+                m.front_right_wheel_speed = get_int_arg(1)
+                m.back_right_wheel_speed = get_int_arg(1)
+                m.back_left_wheel_speed = get_int_arg(1)
+            elif len(split_cmd) == 5:
+                m.front_left_wheel_speed = get_int_arg(1)
+                m.front_right_wheel_speed = get_int_arg(2)
+                m.back_right_wheel_speed = get_int_arg(3)
+                m.back_left_wheel_speed = get_int_arg(4)
+            else:
+                self.get_logger().error(f"The setpwm command either takes one or four arguments")
+
+            self.pub_raw_cmd.publish(m)
         elif command_name == "stop":
             msg = Bool()
             msg.data = False
             self.pub_enable_auto.publish(msg)
-            
+
             m = RPMs()
             m.front_left_rpm = 0.
             m.front_right_rpm = 0.
@@ -118,7 +136,7 @@ class Console(SteadyNode):
             m.back_left_rpm = 0.
 
             self.pub_cmd.publish(m)
-            
+
         elif command_name.startswith("set"):
             if len(split_cmd) != 3:
                 self.get_logger().error(f"set... commands takes 2 arguments")
@@ -139,7 +157,7 @@ class Console(SteadyNode):
                 m.param_id = "kd"
 
             m.new_value = get_arg(2)
-            
+
         elif command_name == "help":
             self.get_logger().info("""
 Commands :
@@ -150,6 +168,10 @@ Commands :
     >> setrpm <all_wheels_rpm>
     >> setrpm
     This last one is setting all wheels' rpms to 150
+- setpwm : Sets the raw PWM sent to the wheels to a certain value between -255 and 255.
+    >> setpwm <front_left_wheel_pwm> <front_right_wheel_pwm> <back_right_wheel_pwm> <back_left_wheel_pwm> 
+    >> setpwm <all_wheels_pwm>
+    >> setpwm
 - stop: equivalent to setrpm 0
 - setkp, setki, setkd: sets a coefficient for the servoing (asservissement) of a given wheel. Can be used like so :
     >> setkp frontleft 0.3
