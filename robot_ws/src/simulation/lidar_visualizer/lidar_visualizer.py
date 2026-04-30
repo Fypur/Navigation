@@ -41,7 +41,7 @@ class LidarVisualizer(SteadyNode):
             # Note: math.cos and math.sin expect radians.
             # If your msg.angles are in degrees, wrap it in math.radians(angle)
             x = distance * math.cos(angle)
-            y = distance * math.sin(angle)
+            y = -distance * math.sin(angle) # Negate y to flip the graph so that 0° is facing "up" on the screen
             xs.append(x)
             ys.append(y)
 

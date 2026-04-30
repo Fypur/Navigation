@@ -92,7 +92,7 @@ class Simulation(Node):
         
         # On tire 1 rayon tous 5 les degrès)
         self.hit_points = []
-        for i in range (72): # 360/5 = 72 points
+        for i in range (360):
             # Angle du rayon = angle du robot + angle de tir
             local_angle = math.radians(i)
             global_angle = robot_angle + local_angle
@@ -126,6 +126,8 @@ class Simulation(Node):
             rpm_msg.back_right_rpm = float(self.robot.wheel4.speed)
         except AttributeError:
             pass
+        
+        self.pub_encoders.publish(rpm_msg)
 
 def main():
     rclpy.init()

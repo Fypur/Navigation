@@ -70,7 +70,7 @@ class LocalizationNode(Node):
             # L'ICP a besoin de DEUX scans pour comparer.
             if not hasattr(self, 'prev_scan'):
                 self.prev_scan = msg
-                return # On arrête là pour cette fois
+                return
             
             # On lance l'ICP
             dx, dy, dtheta = self._run_icp(self.prev_scan, msg)
