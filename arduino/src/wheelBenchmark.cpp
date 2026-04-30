@@ -5,17 +5,24 @@
 //benchmark the RPM of a wheel with an encoder wired to the arduino at the given pins
 //most of this code is taken from the example given by joyIT (the omniwheels manufacturer)
 
-float time1 = 0;
-float time2 = 0;
-volatile int encoderDownCount = 0;
-int aimedSpeed = 40;
-Wheel *benchmarkedWheel;
+
+namespace{
+    float rpm = 0;
+    bool spinningForward = false;
+    float time1 = 0;
+    float time2 = 0;
+    volatile int encoderDownCount = 0;
+    int aimedSpeed = 40;
+    Wheel *benchmarkedWheel;
+    int encoderAPin = -1;
+}
 
 void UpdateRPM();
 void encoderPulse();
 
-void wheelBenchmarkSetup(Wheel* wheel){
+void wheelBenchmarkSetup(Wheel* wheel, int encoderAPin, int encoderBPin){
     benchmarkedWheel = wheel;
+    ::encoderAPin = encoderAPin;
     pinMode(encoderAPin, INPUT_PULLUP);
     pinMode(encoderBPin, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(encoderBPin), encoderPulse, FALLING);

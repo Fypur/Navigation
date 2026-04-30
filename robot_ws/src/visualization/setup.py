@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'simulation'
+package_name = 'visualization'
 
 setup(
     name=package_name,
@@ -21,7 +21,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'simulation = simulation.simulation:main',
-            ],
+            'lidar = lidar.lidar_visualizer:main',
+            'asserv = asserv.asserv_visualizer:main',
+        ],
     },
 )
