@@ -32,7 +32,7 @@ class AsservVisualizer(SteadyNode):
                 self.data_y = self.data_y[-100:]
 
             dpg.set_value(self.line_series, [self.data_x, self.data_y])
-            dpg.set_axis_limits(self.y_axis, 0, 200)
+            dpg.set_axis_limits(self.y_axis, 0, 150)
             dpg.fit_axis_data(self.x_axis)
 
         def set_command(self, rpm_cmd):
@@ -66,16 +66,16 @@ class AsservVisualizer(SteadyNode):
         self.get_logger().debug(
             f"received measured RPMS: {msg.front_left_rpm}, {msg.front_right_rpm}, {msg.back_right_rpm}, {msg.back_left_rpm}")
 
-        self.wheelPlots[0].add_data(msg.front_left_rpm)
-        self.wheelPlots[1].add_data(msg.front_right_rpm)
-        self.wheelPlots[2].add_data(msg.back_right_rpm)
-        self.wheelPlots[3].add_data(msg.back_left_rpm)
+        self.wheelPlots[0].add_data(abs(msg.front_left_rpm))
+        self.wheelPlots[1].add_data(abs(msg.front_right_rpm))
+        self.wheelPlots[2].add_data(abs(msg.back_right_rpm))
+        self.wheelPlots[3].add_data(abs(msg.back_left_rpm))
 
     def cmd_callback(self, msg: RPMs):
-        self.wheelPlots[0].set_command(msg.front_left_rpm)
-        self.wheelPlots[1].set_command(msg.front_right_rpm)
-        self.wheelPlots[2].set_command(msg.back_right_rpm)
-        self.wheelPlots[3].set_command(msg.back_left_rpm)
+        self.wheelPlots[0].set_command(abs(msg.front_left_rpm))
+        self.wheelPlots[1].set_command(abs(msg.front_right_rpm))
+        self.wheelPlots[2].set_command(abs(msg.back_right_rpm))
+        self.wheelPlots[3].set_command(abs(msg.back_left_rpm))
 
     def destroy_node(self):
         # Destroy the GUI context when the node is destroyed
