@@ -231,7 +231,7 @@ class Automatic(SteadyNode):
     
     def _stop(self):
         cmd = RPMs()
-        cmd.front_left_rpm = cmd.front_right_rpm = cmd.back_right_rpm = cmd.back_left_rpm = 0
+        cmd.front_left_rpm = cmd.front_right_rpm = cmd.back_right_rpm = cmd.back_left_rpm = 0.0
         self.pub_cmd.publish(cmd)
         
     # -- Public -- 
