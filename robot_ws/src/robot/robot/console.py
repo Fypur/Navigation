@@ -134,25 +134,40 @@ class Console(SteadyNode):
             self.pub_raw_cmd.publish(m)
 
         elif command_name.startswith("set"):
-            if len(split_cmd) != 3:
-                self.get_logger().error(f"set... commands takes 2 arguments")
+            if len(split_cmd) != 2 and len(split_cmd) != 3:
+                self.get_logger().error(f"set... commands takes 2 or 3 arguments")
                 return
-            m = AsservParamChange()
-
-            if split_cmd[1] != "frontleft" and split_cmd[1] != "frontright"and split_cmd[1] != "backright" and split_cmd[1] != "backleft":
-                self.get_logger().error(f"Wrong wheel id used ! Use frontleft, frontright, backright or backleft")
-                return
-
-            m.wheel_id = split_cmd[1]
-
+            
+            param_id = ""
             if command_name == "setkp":
-                m.param_id = "kp"
+                param_id = "kp"
             elif command_name == "setki":
-                m.param_id = "ki"
+                param_id = "ki"
             elif command_name == "setkd":
-                m.param_id = "kd"
+                param_id = "kd"
 
-            m.new_value = get_float_arg(2)
+            new_value = get_float_arg(2)
+
+            def send_asser_param_message(wheel_id: str):
+                m = AsservParamChange()
+                m.wheel_id = wheel_id
+                m.param_id = param_id
+                if wheel_id != "frontleft" and wheel_id != "frontright"and wheel_id != "backright" and wheel_id != "backleft":
+                    self.get_logger().error(f"Wrong wheel id used ! Use frontleft, frontright, backright or backleft")
+                    return
+                
+                m.new_value = new_value
+                
+                self.pub_asserv_param.publish(m)
+
+            if len(split_cmd) == 3:
+                send_asser_param_message(split_cmd[1])
+            else:
+                send_asser_param_message("frontleft")
+                send_asser_param_message("frontright")
+                send_asser_param_message("backleft")
+                send_asser_param_message("backright")
+                
 
         elif command_name == "help":
             self.get_logger().info("""

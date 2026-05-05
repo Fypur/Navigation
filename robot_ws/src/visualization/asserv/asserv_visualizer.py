@@ -32,7 +32,7 @@ class AsservVisualizer(SteadyNode):
                 self.data_y = self.data_y[-100:]
 
             dpg.set_value(self.line_series, [self.data_x, self.data_y])
-            dpg.set_axis_limits(self.y_axis, 0, 150)
+            dpg.set_axis_limits(self.y_axis, 0, 180)
             dpg.fit_axis_data(self.x_axis)
 
         def set_command(self, rpm_cmd):
