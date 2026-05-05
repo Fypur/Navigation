@@ -72,7 +72,7 @@ class Encoders(SteadyNode):
             remove_old_timestamps(self.negative_encoder_pulse_timestamps)
 
             encoder_pulse_count = len(self.positive_encoder_pulse_timestamps) - len(self.negative_encoder_pulse_timestamps)
-            self.rpm = 60000 * encoder_pulse_count / (self.sliding_average_window * 234.3)
+            self.rpm = 60 * encoder_pulse_count / (self.sliding_average_window * 234.3)
             self.rpm = -self.rpm if self.reversed_motor else self.rpm
 
             return self.rpm

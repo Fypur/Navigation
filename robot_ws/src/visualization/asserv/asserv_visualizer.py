@@ -63,7 +63,7 @@ class AsservVisualizer(SteadyNode):
         self.get_logger().info("Asserv visualizer node successfully launched")
 
     def encoder_callback(self, msg: RPMs):
-        self.get_logger().debug(
+        self.get_logger().info(
             f"received measured RPMS: {msg.front_left_rpm}, {msg.front_right_rpm}, {msg.back_right_rpm}, {msg.back_left_rpm}")
 
         self.wheelPlots[0].add_data(abs(msg.front_left_rpm))
