@@ -41,7 +41,6 @@ class Encoders(SteadyNode):
                                   GPIO.FALLING,
                                   callback=(lambda channel: self.encoder_pulse()))
 
-            # deque is just a queue
             self.positive_encoder_pulse_timestamps = collections.deque()  # modified when the encoder pulses, so when the wheel spins by a certain amount
             self.negative_encoder_pulse_timestamps = collections.deque()
             self.rpm = 0.
@@ -66,6 +65,8 @@ class Encoders(SteadyNode):
                 while len(encoder_pulse_timestamps) > 0:
                     if currentTime - encoder_pulse_timestamps[0] > self.sliding_average_window:
                         encoder_pulse_timestamps.popleft()
+                    else:
+                        break
 
             remove_old_timestamps(self.positive_encoder_pulse_timestamps)
             remove_old_timestamps(self.negative_encoder_pulse_timestamps)
