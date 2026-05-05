@@ -29,6 +29,7 @@ class Encoders(SteadyNode):
             self.a_pin = a_pin
             self.b_pin = b_pin
             self.reversed_motor = reversed
+            self.sliding_average_window = 0.3 #we do a sliding average over 0.3s in order to keep the readings stable
             GPIO.setup(self.a_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             GPIO.setup(self.b_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
@@ -43,7 +44,6 @@ class Encoders(SteadyNode):
             # deque is just a queue
             self.positive_encoder_pulse_timestamps = collections.deque()  # modified when the encoder pulses, so when the wheel spins by a certain amount
             self.negative_encoder_pulse_timestamps = collections.deque()
-            self.sliding_average_window = 0.1 #we do an average of all sliding
             self.rpm = 0.
 
         def encoder_pulse(self):
@@ -72,9 +72,9 @@ class Encoders(SteadyNode):
 
             encoder_pulse_count = len(self.positive_encoder_pulse_timestamps) - len(self.negative_encoder_pulse_timestamps)
             self.rpm = 60000 * encoder_pulse_count / (self.sliding_average_window * 234.3)
+            self.rpm = -self.rpm if self.reversed_motor else self.rpm
 
-            reversed_factor = -1 if self.reversed_motor else 1
-            return self.rpm * reversed_factor
+            return self.rpm
 
 
     def __init__(self):

@@ -56,7 +56,7 @@ class Console(SteadyNode):
         split_cmd = cmd.strip().split(" ")
         command_name = split_cmd[0]
 
-        def get_arg(arg_index: int):
+        def get_float_arg(arg_index: int):
             return float(split_cmd[arg_index])
 
         def get_int_arg(arg_index: int):
@@ -79,15 +79,11 @@ class Console(SteadyNode):
 
             # On envoie la cible
             goal_msg = Point()
-            goal_msg.x = get_arg(1)
-            goal_msg.y = get_arg(2)
+            goal_msg.x = get_float_arg(1)
+            goal_msg.y = get_float_arg(2)
             goal_msg.z = 0.0
             self.pub_goal.publish(goal_msg)
         elif command_name == "setrpm":
-            msg = Bool()
-            msg.data = False
-            self.pub_enable_auto.publish(msg)
-
             m = RPMs()
             if len(split_cmd) == 1:
                 m.front_left_rpm = DEFAULT_RPM
@@ -95,15 +91,15 @@ class Console(SteadyNode):
                 m.back_right_rpm = DEFAULT_RPM
                 m.back_left_rpm = DEFAULT_RPM
             elif len(split_cmd) == 2:
-                m.front_left_rpm = get_arg(1)
-                m.front_right_rpm = get_arg(1)
-                m.back_right_rpm = get_arg(1)
-                m.back_left_rpm = get_arg(1)
+                m.front_left_rpm = get_float_arg(1)
+                m.front_right_rpm = get_float_arg(1)
+                m.back_right_rpm = get_float_arg(1)
+                m.back_left_rpm = get_float_arg(1)
             elif len(split_cmd) == 5:
-                m.front_left_rpm = get_arg(1)
-                m.front_right_rpm = get_arg(2)
-                m.back_right_rpm = get_arg(3)
-                m.back_left_rpm = get_arg(4)
+                m.front_left_rpm = get_float_arg(1)
+                m.front_right_rpm = get_float_arg(2)
+                m.back_right_rpm = get_float_arg(3)
+                m.back_left_rpm = get_float_arg(4)
             else:
                 self.get_logger().error(f"The setrpm command either takes none, one or four arguments")
 
@@ -129,13 +125,13 @@ class Console(SteadyNode):
             msg.data = False
             self.pub_enable_auto.publish(msg)
 
-            m = RPMs()
-            m.front_left_rpm = 0.
-            m.front_right_rpm = 0.
-            m.back_right_rpm = 0.
-            m.back_left_rpm = 0.
+            m = WheelSpeeds()
+            m.front_left_wheel_speed = 0
+            m.front_right_wheel_speed = 0
+            m.back_right_wheel_speed = 0
+            m.back_left_wheel_speed = 0
 
-            self.pub_cmd.publish(m)
+            self.pub_raw_cmd.publish(m)
 
         elif command_name.startswith("set"):
             if len(split_cmd) != 3:
@@ -156,7 +152,7 @@ class Console(SteadyNode):
             elif command_name == "setkd":
                 m.param_id = "kd"
 
-            m.new_value = get_arg(2)
+            m.new_value = get_float_arg(2)
 
         elif command_name == "help":
             self.get_logger().info("""
