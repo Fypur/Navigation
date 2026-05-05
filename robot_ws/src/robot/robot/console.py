@@ -165,7 +165,7 @@ class Console(SteadyNode):
                 self.pub_asserv_param.publish(m)
 
             if len(split_cmd) == 3:
-                send_asser_param_message(split_cmd[2])
+                send_asser_param_message(split_cmd[1])
             else:
                 send_asser_param_message("frontleft")
                 send_asser_param_message("frontright")

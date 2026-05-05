@@ -51,7 +51,8 @@ class Control(SteadyNode):
             if deltaTime != 0:
                 derivative = (error - self.last_error) / deltaTime
 
-            pwm = int(self.basePWMFunction(self.target_rpm) + self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
+            #pwm = int(self.basePWMFunction(self.target_rpm) + self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
+            pwm = int(self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
 
             if pwm > 255:
                 pwm = 255
@@ -141,7 +142,7 @@ class Control(SteadyNode):
             wheel_control.kd = msg.new_value
         elif msg.param_id == "ki":
             wheel_control.ki = msg.new_value
-            
+
         self.get_logger().info(f"Set {msg.param_id} of wheel {msg.wheel_id} to {msg.new_value}")
 
 
