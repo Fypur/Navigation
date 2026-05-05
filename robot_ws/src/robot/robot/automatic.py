@@ -88,6 +88,9 @@ class Automatic(SteadyNode):
     # -- Callbacks --
     
     def enable_auto_callback(self, msg: Bool):
+        if not self.is_auto:
+            return
+
         self.is_auto = msg.data
         if self.is_auto:
             self.get_logger().info("Mode AUTOMATIQUE activé.")
