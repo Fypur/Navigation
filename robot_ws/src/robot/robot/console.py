@@ -137,7 +137,7 @@ class Console(SteadyNode):
             if len(split_cmd) != 2 and len(split_cmd) != 3:
                 self.get_logger().error(f"set... commands takes 2 or 3 arguments")
                 return
-            
+
             param_id = ""
             if command_name == "setkp":
                 param_id = "kp"
@@ -146,7 +146,11 @@ class Console(SteadyNode):
             elif command_name == "setkd":
                 param_id = "kd"
 
-            new_value = get_float_arg(2)
+            new_value = 0.
+            if len(split_cmd) == 3:
+                new_value = get_float_arg(2)
+            else:
+                new_value = get_float_arg(1)
 
             def send_asser_param_message(wheel_id: str):
                 m = AsservParamChange()
@@ -155,19 +159,19 @@ class Console(SteadyNode):
                 if wheel_id != "frontleft" and wheel_id != "frontright"and wheel_id != "backright" and wheel_id != "backleft":
                     self.get_logger().error(f"Wrong wheel id used ! Use frontleft, frontright, backright or backleft")
                     return
-                
+
                 m.new_value = new_value
-                
+
                 self.pub_asserv_param.publish(m)
 
             if len(split_cmd) == 3:
-                send_asser_param_message(split_cmd[1])
+                send_asser_param_message(split_cmd[2])
             else:
                 send_asser_param_message("frontleft")
                 send_asser_param_message("frontright")
                 send_asser_param_message("backleft")
                 send_asser_param_message("backright")
-                
+
 
         elif command_name == "help":
             self.get_logger().info("""
