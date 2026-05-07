@@ -15,10 +15,10 @@ class Control(SteadyNode):
         # PID pour une roue
         # Ce PID n'est là que pour compenser des petites erreurs, la formule finale pour calc la PMW est
         # PWM = int(basePWM + WheelControl.calcPWM())
-        def __init__(self, basePWMFunction: Callable[[float], float], logger) -> None:
-            self.kp = 0.3
-            self.ki = 0.1
-            self.kd = 0.0
+        def __init__(self, basePWMFunction: Callable[[float], float], kp: float, ki: float, kd: float, logger) -> None:
+            self.kp = kp
+            self.ki = ki
+            self.kd = kd
             self.accumulated_error = 0.0
             self.last_error = 0.0
             self.max_accumulated_error = 1000.0
@@ -87,10 +87,10 @@ class Control(SteadyNode):
         }
 
         self.wheelControls = [
-            self.WheelControl(base_pwm(self.front_left_RPM), self.get_logger()),
-            self.WheelControl(base_pwm(self.front_right_RPM), self.get_logger()),
-            self.WheelControl(base_pwm(self.back_right_RPM), self.get_logger()),
-            self.WheelControl(base_pwm(self.back_left_RPM), self.get_logger()),
+            self.WheelControl(base_pwm(self.front_left_RPM), 1.8, 4.74, 0.17, self.get_logger()),
+            self.WheelControl(base_pwm(self.front_right_RPM), 1, 0, 0, self.get_logger()),
+            self.WheelControl(base_pwm(self.back_right_RPM), 2.1, 6, 0.18, self.get_logger()),
+            self.WheelControl(base_pwm(self.back_left_RPM), 1.08, 6.55, 0.04, self.get_logger()),
         ]
 
         self.get_logger().info("Control node launched")
