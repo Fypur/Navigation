@@ -77,7 +77,7 @@ class Encoders(SteadyNode):
 
             encoder_pulse_count = len(self.positive_encoder_pulse_timestamps) - len(self.negative_encoder_pulse_timestamps)
             self.rpm = 60 * encoder_pulse_count / (self.sliding_average_window * 234.3)
-            self.rpm = -self.rpm if self.reversed_motor else self.rpm
+            self.rpm = -abs(self.rpm) if self.reversed_motor else self.rpm
 
             return self.rpm
 
