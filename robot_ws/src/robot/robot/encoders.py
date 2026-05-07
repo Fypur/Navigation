@@ -33,7 +33,7 @@ class Encoders(SteadyNode):
             self.a_pin = a_pin
             self.b_pin = b_pin
             self.reversed_motor = reversed
-            self.sliding_average_window = 0.2 #we do a sliding average over 0.3s in order to keep the readings stable
+            self.sliding_average_window = 0.3 #we do a sliding average over 0.3s in order to keep the readings stable
             GPIO.setup(self.a_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             GPIO.setup(self.b_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
