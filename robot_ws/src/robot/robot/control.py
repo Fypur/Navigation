@@ -21,8 +21,8 @@ class Control(SteadyNode):
             self.kd = 0.0
             self.accumulated_error = 0.0
             self.last_error = 0.0
-            self.max_accumulated_error = 10.0
-            self.min_accumulated_error = -10.0
+            self.max_accumulated_error = 1000.0
+            self.min_accumulated_error = -1000.0
             self.last_time = time()
             self.basePWMFunction = basePWMFunction
             self.target_rpm = 0.
