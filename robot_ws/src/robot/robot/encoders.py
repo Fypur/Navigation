@@ -1,13 +1,18 @@
 # all of this code is documented at https://github.com/Fypur/Navigation/wiki/Encoders
 
 import rclpy
+import rclpy.logging
 from robot.steady_node import SteadyNode
-import RPi.GPIO as GPIO  #pip install RPi.GPIO
 from enum import IntEnum
 import time
 from msgs.msg import RPMs
 import collections
 
+try:
+    import RPi.GPIO as GPIO  #pip install RPi.GPIO
+except RuntimeError:
+    rclpy.logging.get_logger("encoders").error("Couldn't import RPi.GPIO, make sure you're running this node on a raspberry pi. This node will now shutdown.")
+    exit()
 
 class PinMap(IntEnum):
     ENCODER_FRONT_LEFT_A = 17
@@ -24,7 +29,6 @@ class Encoders(SteadyNode):
     class EncoderSignalPin:
 
         def __init__(self, a_pin: int, b_pin: int, reversed: bool, logger) -> None:
-
             # pin setup
             self.a_pin = a_pin
             self.b_pin = b_pin
@@ -98,7 +102,6 @@ class Encoders(SteadyNode):
 
     def send_RPMs(self):
         msg = RPMs()
-
         msg.front_left_rpm = self.encoderSignalPins[0].update_rpm()
         msg.front_right_rpm = self.encoderSignalPins[1].update_rpm()
         msg.back_right_rpm = self.encoderSignalPins[2].update_rpm()

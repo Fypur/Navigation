@@ -47,10 +47,7 @@ class LidarNode(Node):
         self.pub_obstacles = self.create_publisher(Lidar, '/robot/lidar_obstacles', 10)
         
         self.get_logger().info(
-            f"""Noeud Lidar démarré
-            min={self.min_dist}m
-            max={self.max_dist}m
-            seuil_obstacle={self.obs_range}m"""
+            f"""Noeud Lidar démarré, min={self.min_dist}m, max={self.max_dist}m, seuil_obstacle={self.obs_range}m"""
         )
         
     # -- Callback principal --

@@ -2,6 +2,7 @@ import struct
 import rclpy
 from robot.steady_node import SteadyNode
 from robot.serial_utils import open_serial_port
+from serial.serialutil import SerialException
 from enum import Enum
 from msgs.msg import WheelSpeeds
 
@@ -29,8 +30,12 @@ class Serial(SteadyNode):
 
         self.declare_parameter("serial_port", value="/dev/ttyUSB0")
 
-        serial_port: str = self.get_parameter("serial_port").get_parameter_value().string_value
-        self.serial_file = open_serial_port(serial_port=serial_port, baudrate=BAUDRATE, timeout=None)
+        try:
+            serial_port: str = self.get_parameter("serial_port").get_parameter_value().string_value
+            self.serial_file = open_serial_port(serial_port=serial_port, baudrate=BAUDRATE, timeout=None)
+        except SerialException as e:
+            self.get_logger().error(f"Could not find the arduino serial port. Full error: {e}")
+            exit()
 
         self.create_subscription(WheelSpeeds, "/robot/wheels", self.send_wheel_speeds, 10)
 
