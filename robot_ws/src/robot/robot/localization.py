@@ -4,13 +4,48 @@ from msgs.msg import Lidar, RPMs
 from geometry_msgs.msg import Pose2D
 import math
 import numpy as np
+import time
 from scipy.spatial import KDTree
+import matplotlib.pyplot as plt
 
-# -- Paramètres physiques du robot (à ajuster) --
-WHEEL_RADIUS = 0.04  # Rayon de la roue en mètres (ex: 4cm)
-LX = 0.15            # Distance entre le centre et l'axe des roues avant/arrière (m)
-LY = 0.15            # Distance entre le centre et l'axe des roues gauche/droite (m)
-GEAR_RATIO = 1.0     # Si RPM sont ceux du moteur et non de la roue
+WHEEL_RADIUS = 0.04
+LX = 0.15
+LY = 0.15
+GEAR_RATIO = 1.0
+
+def best_rigid_transform(A, B):
+    centroid_A = np.mean(A, axis=0)
+    centroid_B = np.mean(B, axis=0)
+
+    AA = A - centroid_A
+    BB = B - centroid_B
+
+    H = AA.T @ BB
+    U, S, Vt = np.linalg.svd(H)
+
+    R = Vt.T @ U.T
+
+    if np.linalg.det(R) < 0:
+        Vt[1, :] *= -1
+        R = Vt.T @ U.T
+
+    t = centroid_B - R @ centroid_A
+
+    return R, t
+
+
+# -----------------------------
+# Nearest neighbor
+# -----------------------------
+def nearest_neighbor(src, dst):
+    indices = []
+    for p in src:
+        dists = np.linalg.norm(dst - p, axis=1)
+        indices.append(np.argmin(dists))
+    return dst[indices]
+
+
+
 
 class LocalizationNode(Node):
     
@@ -20,40 +55,55 @@ class LocalizationNode(Node):
         # -- Etat interne de la position -- 
         self.x = 0.0
         self.y = 0.0
+        self.prev_x = 0.0
+        self.prev_y = 0.0
         self.theta = 0.0
-        
-        # -- Pour la comparaison avec la position -- 
-        self.previous_lidar_scan = None
+        self.prev_theta = 0.0
+        self.last_time = time.time()
         
         # -- Abonnements aux topics --
         
         # Abonnement aux encodeurs pour la premmière estimation de la position
-        self.create_subscription (RPMs, '/robot/encoders', self.encoders_callback,50)
+        self.create_subscription (RPMs, '/robot/encoders', self.encoders_callback, 1)
         
         # Abonnement au Lidar pour la correction (Basse fréquence)
-        self.create_subscription (Lidar, '/robot/lidar', self.lidar_callback, 10)
+        #self.create_subscription (Lidar, '/robot/lidar', self.lidar_callback, 1)
         
         # -- Publication --
-        # Remplace le faux positionnement absolu pour le noeud Automatic
         self.pub_pos = self.create_publisher(Pose2D, '/robot/pos', 10)
         
         self.get_logger().info("Noeud Localization (Encodeurs et Lidar) démarré")
         
+
     # -- Callback pour les encodeurs --
     def encoders_callback(self, msg: RPMs):
         """
         Calcul cinématique pur : mise à jour rapide mais qui dérive.
         """
+        # Conversion RPM -> Vitesse angulaire de la roue (rad/s)
+        coef = (2 * math.pi) / 60.0
+        w_fl = msg.front_left_rpm * coef
+        w_fr = msg.front_right_rpm * coef
+        w_rl = msg.back_left_rpm * coef
+        w_rr = msg.back_right_rpm * coef
         
-        # Calculer dx, dy, dtheta depuis les vitesses/ticks des 4 roues 
-        # (Cinématique directe du robot)
+        # Modele cinématique inverse pour châssis 4 roues (Mécanum)
+        vx = (WHEEL_RADIUS / 4.0) * ( w_fl + w_fr + w_rl + w_rr)
+        vy = (WHEEL_RADIUS / 4.0) * (-w_fl + w_fr + w_rl - w_rr)
+        w  = (WHEEL_RADIUS / (4.0 * (LX + LY))) * (-w_fl + w_fr - w_rl + w_rr)
         
-        dx, dy, dtheta = self._compute_kinematics(msg)
+        # Calcul temps réel
+        current_time = time.time()
+        dt = current_time - self.last_time
+        self.last_time = current_time
         
-        # Mettre à jour la position interne
-        self.x += dx * math.cos(self.theta) - dy * math.sin(self.theta)
-        self.y += dx * math.sin(self.theta) + dy * math.cos(self.theta)
-        self.theta += dtheta
+        if dt > 1.0 or dt <= 0.0:
+            dt = 0.1
+        
+        # Déplacement dans le repère local -> projeté dans le repère global
+        self.x += (vx * math.cos(self.theta) - vy * math.sin(self.theta)) * dt
+        self.y += (vx * math.sin(self.theta) + vy * math.cos(self.theta)) * dt
+        self.theta += w * dt
         self.theta = self._angle_wrap(self.theta)
         
         # Publier la position estimee fluide
@@ -65,113 +115,208 @@ class LocalizationNode(Node):
         Recalage de la position via l'environnement pour annuler la dérive
         des encodeurs.
         """
-        
         try:
-            # L'ICP a besoin de DEUX scans pour comparer.
-            if not hasattr(self, 'prev_scan'):
-                self.prev_scan = msg
+            # On projette le scan reçu dans le repère global en utilisant la position dérivée
+            #pts_curr_global = self._get_global_points(msg)
+
+            # Initialisation
+            if not hasattr(self, 'prev_global_points'):
+                #self.prev_global_points = pts_curr_global
+                #self.prev_x, self.prev_y, self.prev_theta = self.x, self.y, self.theta
+                self.prev_x, self.prev_y, self.prev_theta = self.x, self.y, self.theta
+                self.prev_global_points = self._get_global_points(msg, self.prev_x, self.prev_y, self.prev_theta)
+                
+                #print(self.prev_global_points)
+                #print(self.prev_x, self.prev_y, self.prev_theta)
                 return
+
+            pts_curr_global = self._get_global_points(msg, self.prev_x, self.prev_y, self.prev_theta)
             
-            # On lance l'ICP
-            dx, dy, dtheta = self._run_icp(self.prev_scan, msg)
-
-            # Mise à jour de la position
-            self.x += dx
-            self.y += dy
-            self.theta += dtheta
-
-            # Création et publication du message
-            pose_msg = Pose2D()
-            pose_msg.x = float(self.x)
-            pose_msg.y = float(self.y)
-            pose_msg.theta = float(self.theta)
             
-            self.pub_pos.publish(pose_msg)
+            
+            
+            # Calcul de la transformation ICP entre le scan actuel et le scan précédent
+            R, translation, dtheta = self._run_icp_papa(self.prev_global_points, pts_curr_global)
+            
 
-            # On sauvegarde le scan actuel pour le prochain tour
-            self.prev_scan = msg
+            if R is not None:
+                self.x,self.y,self.theta = self.update_robot_pose(self.prev_x, self.prev_y, self.prev_theta, dtheta, translation)
+                # Appliquer la transformation mathématique à la position du robot
+                #robot_pos = np.array([self.prev_x, self.prev_y])
+                #new_pos = R @ robot_pos + translation
+                
+                #self.x = new_pos[0]
+                #self.y = new_pos[1]
+                #self.theta = self._angle_wrap(self.prev_theta + dtheta)
+                #print('translation : {translation}, R : {R}'.format(translation=translation, R=R))
+
+                # Le nouveau scan "corrigé" devient la référence pour le prochain coup
+                self.prev_global_points = pts_curr_global #self._get_global_points(msg)
+                self.prev_x, self.prev_y, self.prev_theta = self.x, self.y, self.theta
+                
+            else:
+                # Si l'ICP échoue (peu de murs), on met à jour la référence avec l'odométrie
+                self.prev_global_points = pts_curr_global
+                self.prev_x, self.prev_y, self.prev_theta = self.x, self.y, self.theta
+
+            #print(self.prev_global_points)
+            #print(self.prev_x, self.prev_y, self.prev_theta)
+            
+            self._publish_pose()
 
         except Exception as e:
-            # SI LE MOINDRE TRUC PLANTE, ÇA S'AFFICHERA ICI EN ROUGE
-            self.get_logger().error(f"ERREUR FATALE : {e}")
+            self.get_logger().error(f"Erreur ICP Lidar : {e}")
         
     
     # -- Méthodes utilitaires --
     
+    def _get_global_points(self, scan, ref_x, ref_y, ref_theta):
+        """Convertit un scan Lidar en nuage de points cartésiens dans le repère Global."""
+        points = []
+        cos_t = math.cos(ref_theta)
+        sin_t = math.sin(ref_theta)
+        
+        for angle, dist in zip(scan.angles, scan.distances):
+            # On accepte les obstacles jusqu'à 5.95m
+            # Les points à 6.0m sont ignorés car c'est le "vide" renvoyé par la simulation
+            if math.isfinite(dist) and 0.05 < dist < 5.95: 
+                lx = dist * math.cos(angle)
+                ly = dist * math.sin(angle)
+                gx = ref_x + lx * cos_t - ly * sin_t
+                gy = ref_y + lx * sin_t + ly * cos_t
+                points.append((gx, gy))
+                
+        return np.array(points)
+    
+    
+    '''def _run_icp_global(self, pts_prev, pts_curr):
+        """
+        Trouve la matrice de Rotation (R) et de Translation (T) qui aligne pts_curr sur pts_prev
+        via l'algorithme Iterative Closest Point (ICP).
+        """
+        if len(pts_prev) < 20 or len(pts_curr) < 20:
+            return None, None, None
+
+        tree = KDTree(pts_prev)
+        src_pts = np.copy(pts_curr)
+        
+        total_R = np.eye(2)
+        total_t = np.zeros(2)
+        
+        max_iterations = 20
+        
+        for _ in range(max_iterations):
+            # Trouver les points les plus proches
+            distances, indices = tree.query(src_pts)
+            
+            # Filtrer les aberrations (points à plus de 30cm)
+            #valid = distances < 0.3
+            matched_src = src_pts#[valid]
+            matched_prev = pts_prev[indices]#[valid]]
+            
+            if len(matched_src) < 20:
+                break
+                
+            # Calcul des centres de gravité
+            c_src = np.mean(matched_src, axis=0)
+            c_prev = np.mean(matched_prev, axis=0)
+            
+            # Centrer les points
+            p_src_centered = matched_src - c_src
+            p_prev_centered = matched_prev - c_prev
+            
+            # Calcul de l'alignement via SVD
+            H = p_src_centered.T @ p_prev_centered
+            U, S, Vt = np.linalg.svd(H)
+            R = Vt.T @ U.T
+            
+            # Gérer les réflexions miroir éventuelles
+            if np.linalg.det(R) < 0:
+                Vt[1, :] *= -1
+                R = Vt.T @ U.T
+                
+            t = c_prev - R @ c_src
+            
+            # Appliquer la transformation locale au nuage pour la prochaine itération
+            src_pts = (R @ src_pts.T).T + t
+            
+            # Cumuler la transformation globale (C'est ce qu'on renverra au robot)
+            total_R = R @ total_R
+            total_t = R @ total_t + t
+            
+            # Condition d'arrêt : Si l'écart moyen est minuscule, on a convergé
+            if np.mean(distances) < 0.005 : #[valid]) < 0.005: 
+                break
+        
+        dtheta = math.atan2(total_R[1, 0], total_R[0, 0])
+        return total_R, total_t, dtheta'''
+    
+    
+    def _run_icp_papa(self, pts_prev, pts_curr, max_iter=50):
+        src = pts_curr.copy()
+        target = pts_prev
+
+        R_total = np.eye(2)
+        t_total = np.zeros(2)
+
+        for _ in range(max_iter):
+            matched = nearest_neighbor(src, target)
+            R, t = best_rigid_transform(src, matched)
+
+            src = (R @ src.T).T + t
+
+            R_total = R @ R_total
+            t_total = R @ t_total + t
+
+        theta = np.arctan2(R_total[1, 0], R_total[0, 0])
+        
+        return R_total, t_total, theta
+
+    def icp_to_robot_motion(self, theta_icp, t_icp):
+        # matrice rotation ICP
+        R_icp = np.array([
+            [np.cos(theta_icp), -np.sin(theta_icp)],
+            [np.sin(theta_icp),  np.cos(theta_icp)]
+        ])
+
+        # inversion
+        R_robot = R_icp.T
+        t_robot = -R_robot @ t_icp
+
+        theta_robot = np.arctan2(R_robot[1, 0], R_robot[0, 0])
+
+        return theta_robot, t_robot
+
+
+    def update_robot_pose(self, x, y, theta, theta_icp, t_icp):
+        theta_robot, t_robot = self.icp_to_robot_motion(theta_icp, t_icp)
+
+        # rotation du déplacement dans le repère monde
+        R_world = np.array([
+            [np.cos(theta), -np.sin(theta)],
+            [np.sin(theta),  np.cos(theta)]
+        ])
+
+        t_world = R_world @ t_robot
+
+        x_new = x + t_world[0]
+        y_new = y + t_world[1]
+        theta_new = theta + theta_robot
+        
+        '''x_new = math.cos(theta_icp) * x - math.sin(theta_icp) * y + t_icp[0]
+        y_new = math.sin(theta_icp) * x + math.cos(theta_icp) * y + t_icp[1]
+        
+        # Mise à jour de l'angle (addition directe)
+        theta_new = self._angle_wrap(theta + theta_icp)'''
+
+        return x_new, y_new, theta_new
+    
     def _publish_pose(self):
         msg = Pose2D()
-        msg.x = self.x
-        msg.y = self.y
-        msg.theta = self.theta
+        msg.x = float(self.x)
+        msg.y = float(self.y)
+        msg.theta = float(self.theta)
         self.pub_pos.publish(msg)
-    
-    def _compute_kinematics(self, msg):
-        # Conversion RPM -> Vitesse angulaire de la roue (rad/s)
-        # Formule : RPM * 2pi / 60
-        coef = (2 * math.pi) / 60.0
-        w_fl = msg.front_left_rpm * coef
-        w_fr = msg.front_right_rpm * coef
-        w_rl = msg.back_left_rpm * coef
-        w_rr = msg.back_right_rpm * coef
-
-        # Vitesse linéaire du robot (repère local robot)
-        # Modèle cinématique inverse pour châssis 4 roues
-        vx = (WHEEL_RADIUS / 4.0) * ( w_fl + w_fr + w_rl + w_rr)
-        vy = (WHEEL_RADIUS / 4.0) * (-w_fl + w_fr + w_rl - w_rr)
-        w  = (WHEEL_RADIUS / (4.0 * (LX + LY))) * (-w_fl + w_fr - w_rl + w_rr)
-
-        # Calcul du déplacement (vitesse * temps entre deux messages)
-        # On suppose ici une fréquence de 50Hz (dt = 0.02s)
-        dt = 0.02 
-        return vx * dt, vy * dt, w * dt # A REMPLIR (calcul du déplacement à partir des vitesses)
-    
-    def _run_icp(self, scan_prev, scan_curr):
-        """
-        Calcule la correction entre deux scans successifs.
-        """
-        # Transformer scan_prev et scan_curr en listes de points [(x1,y1), (x2,y2)...]
-        pts_prev = np.array(self._polar_to_cartesian(scan_prev))
-        pts_curr = np.array(self._polar_to_cartesian(scan_curr))
-
-        # On utilise une bibliothèque spéciale
-        if len(pts_prev) < 10 or len(pts_curr) < 10:
-            return 0.0, 0.0, 0.0 # Pas assez de points pour une correction fiable   
-        
-        # Recherche des correspondances (Plus proches voisins)
-        tree = KDTree(pts_prev)
-        distances, indices = tree.query(pts_curr)
-        
-        # On garde les points assez proches pour éviter les erreurs
-        valid = distances < 0.2
-        matched_prev = pts_prev[indices[valid]]
-        matched_curr = pts_curr[valid]
-        
-        # Calcul des centres des clusters
-        c_prev = np.mean(matched_prev, axis=0)
-        c_curr = np.mean(matched_curr, axis=0)
-        
-        # Calcul de la rotation
-        p_shifted = matched_prev - c_prev
-        q_shifted = matched_curr - c_curr
-        H = p_shifted.T @ q_shifted
-        U, S, Vt = np.linalg.svd(H)
-        R = Vt.T @ U.T
-        
-        dtheta = np.arctan2(R[1, 0], R[0, 0])
-        dx, dy= c_curr - R @ c_prev
-        
-        return dx, dy, dtheta
-
-
-    def _polar_to_cartesian(self, scan):
-        points = []
-        for angle, dist in zip(scan.angles, scan.distances):
-            if math.isfinite(dist) and dist > 0.05:
-                px = dist * math.cos(angle)
-                py = dist * math.sin(angle)
-                points.append((px, py))
-        return points
-
     
     def _angle_wrap(self, angle):
         # Ramène un angle à [-pi, pi]
@@ -180,7 +325,8 @@ class LocalizationNode(Node):
         while angle < -math.pi:
             angle += 2.0 * math.pi
         return angle
-
+    
+    
 
 def main():
     rclpy.init()

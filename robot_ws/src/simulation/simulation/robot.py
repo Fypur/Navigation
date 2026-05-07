@@ -1,5 +1,6 @@
 import pymunk
 import pygame
+import math
 
 ROBOT_SIZE = (80, 80)
 DIRECTION_LINE_LENGTH = 30
@@ -17,10 +18,12 @@ class Robot():
         # et les autres objets du décor
         self.box_shape.filter = pymunk.ShapeFilter(categories=0b01)
 
-        self.wheel1 = Wheel(self, (ROBOT_SIZE[0] / 2, -ROBOT_SIZE[0] / 2))
-        self.wheel2 = Wheel(self, (ROBOT_SIZE[0] / 2, ROBOT_SIZE[0] / 2))
-        self.wheel3 = Wheel(self, (-ROBOT_SIZE[0] / 2, ROBOT_SIZE[0] / 2))
-        self.wheel4 = Wheel(self, (-ROBOT_SIZE[0] / 2, -ROBOT_SIZE[0] / 2))
+        _D = 1.0 / math.sqrt(2)  # normalisation
+
+        self.wheel1 = Wheel(self, ( ROBOT_SIZE[0]/2, -ROBOT_SIZE[0]/2), pymunk.Vec2d( _D,  _D))  # FL
+        self.wheel2 = Wheel(self, ( ROBOT_SIZE[0]/2,  ROBOT_SIZE[0]/2), pymunk.Vec2d( _D, -_D))  # FR
+        self.wheel3 = Wheel(self, (-ROBOT_SIZE[0]/2,  ROBOT_SIZE[0]/2), pymunk.Vec2d(-_D, -_D))  # BR  (ou +_D,+_D selon sens)
+        self.wheel4 = Wheel(self, (-ROBOT_SIZE[0]/2, -ROBOT_SIZE[0]/2), pymunk.Vec2d(-_D,  _D))  # BL
         self.wheels = [self.wheel1, self.wheel2, self.wheel3, self.wheel4]
 
         self.space = space
@@ -50,9 +53,9 @@ class Robot():
 
 class Wheel():
 
-    def __init__(self, robot: Robot, local_position: tuple[float, float]) -> None:
+    def __init__(self, robot, local_position, direction=pymunk.Vec2d(1, 0)):
         self.local_position = local_position
-        self.direction = pymunk.Vec2d(1, 0)
+        self.direction = direction
         self.robot = robot
         self.speed = 0.
 

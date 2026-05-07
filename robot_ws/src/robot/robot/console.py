@@ -139,6 +139,7 @@ class Console(SteadyNode):
                 m.param_id = "kd"
 
             m.new_value = get_arg(2)
+            self.pub_asserv_param.publish(m)
             
         elif command_name == "help":
             self.get_logger().info("""

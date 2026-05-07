@@ -15,6 +15,8 @@ import rclpy
 from msgs.msg import Lidar, Command, RPMs
 from geometry_msgs.msg import Pose2D, Point
 from std_msgs.msg import Bool
+from robot.robot_config import (MAX_RPM, K_ATT, K_REP, APF_D0, APF_MIN_DIST,
+                                  GOAL_RADIUS, ROBOT_RADIUS, angle_wrap)
 
 # -- Paramètres à ajuster --
 
@@ -22,22 +24,9 @@ from std_msgs.msg import Bool
 GOAL_X = 1.0
 GOAL_Y = 0.0
 
-# -- Champ attractif --
-K_ATT = 1.5         # gain d'attraction
-GOAL_RADIUS = 0.1   # distance en mètres en-dessous de laquelle la cible est considérée comme atteinte
-
-# -- Champ répulsif --
-K_REP = 0.8     # gain répulsif
-D0 = 0.5        # rayon d'influence des obstacles en mètres : DOIT correspondre à obstacle_range du noeud lidar
-MIN_DIST = 0.05 # distance plancher pour pas diviser par 0
-
 # -- Conversion force -> consigne RPM --
-MAX_SPEED = 160     # valeur RPM max envoyée au noeud control (entier, même echelle que la console)
 MAX_LINEAR_FORCE = 3.0
 MAX_ANGULAR_FORCE = 2.0
-
-# -- Rayon approximatif du robot (m) --
-ROBOT_RADIUS = 0.15
 
 # -- Fréquence de la boucle de contrôle --
 PUBLISH_HZ = 10.0
@@ -88,12 +77,14 @@ class Automatic(SteadyNode):
     # -- Callbacks --
     
     def enable_auto_callback(self, msg: Bool):
-        self.is_auto = msg.data
-        if self.is_auto:
-            self.get_logger().info("Mode AUTOMATIQUE activé.")
-        else:
-            self.get_logger().info("Mode MANUEL activé. Arrêt de la navigation auto.")
-            self._stop() # On force l'arrêt du robot quand on repasse en manuel
+        if self.is_auto != msg.data:
+            if self.is_auto:
+                self._stop()
+                self.is_auto = False
+                self.get_logger().info("Mode MANUEL activé. Arrêt de la navigation auto.")
+            else:
+                self.is_auto = True
+                self.get_logger().info("Mode AUTOMATIQUE activé.")
             
     def goal_callback(self, msg: Point):
         # Appelle la fonction set_goal existante avec les données reçues
@@ -150,15 +141,15 @@ class Automatic(SteadyNode):
 
         fx_rep, fy_rep = 0.0, 0.0
         for angle, d in zip(self.obstacle_angles, self.obstacle_distances):
-            if not math.isfinite(d) or d < MIN_DIST or d > D0:
+            if not math.isfinite(d) or d < APF_MIN_DIST or d > APF_D0:
                 continue
-            d = max(d, MIN_DIST) # éviter les divisions par 0
+            d = max(d, APF_MIN_DIST) # éviter les divisions par 0
             
             # Direction obstacle dans le repère monde
             angle_world = self.robot_theta + angle
             ox = d * math.cos(angle_world)
             oy = d * math.sin(angle_world)
-            coeff = K_REP * (1.0 / d - 1.0 / D0) / (d**2)
+            coeff = K_REP * (1.0 / d - 1.0 / APF_D0) / (d**2)
             # Force opposée à la direction robot -> obstacle
             fx_rep -= coeff * ox / d
             fy_rep -= coeff * oy / d
@@ -180,7 +171,7 @@ class Automatic(SteadyNode):
         
         # COrrection angulaire pour aligner l robot sur la direction de la force
         desired_heading = math.atan2(fy, fx)
-        heading_error = _angle_wrap(desired_heading - self.robot_theta)
+        heading_error = angle_wrap(desired_heading - self.robot_theta)
         w = 1.0 * heading_error # gain angulaire (à ajuster)
         
         return vx, vy, w
@@ -216,14 +207,13 @@ class Automatic(SteadyNode):
         rl /= max_val
         
         #def to_pwm(v: float):
-            #return int(v * MAX_SPEED)
+            #return int(v * MAX_RPM)
         
         cmd = RPMs()
-        cmd.action = 'setrpm'
-        cmd.front_left_rpm = float(fl * MAX_SPEED)
-        cmd.front_right_rpm = float(fr * MAX_SPEED)
-        cmd.back_right_rpm = float(rr * MAX_SPEED)
-        cmd.back_left_rpm = float(rl * MAX_SPEED)
+        cmd.front_left_rpm = float(fl * MAX_RPM)
+        cmd.front_right_rpm = float(fr * MAX_RPM)
+        cmd.back_right_rpm = float(rr * MAX_RPM)
+        cmd.back_left_rpm = float(rl * MAX_RPM)
 
         self.pub_cmd.publish(cmd)
         self.get_logger().debug(
@@ -232,8 +222,7 @@ class Automatic(SteadyNode):
     
     def _stop(self):
         cmd = RPMs()
-        cmd.action = 'setrpm'
-        cmd.front_left_rpm = cmd.front_right_rpm = cmd.back_right_rpm = cmd.back_left_rpm = 0
+        cmd.front_left_rpm = cmd.front_right_rpm = cmd.back_right_rpm = cmd.back_left_rpm = 0.0
         self.pub_cmd.publish(cmd)
         
     # -- Public -- 
