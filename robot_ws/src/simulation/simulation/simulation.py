@@ -2,7 +2,7 @@ import rclpy
 import math
 import pygame
 from rclpy.node import Node
-from msgs.msg import Health, Lidar, RPMs
+from msgs.msg import Lidar, RPMs
 import pymunk
 from time import time
 from geometry_msgs.msg import Pose2D 
@@ -28,7 +28,6 @@ class SimulationNode(Node):
         super().__init__("driver")
 
         # Publishers
-        self.pub_health = self.create_publisher(Health, "/robot/health", 10)
         self.pub_lidar = self.create_publisher(Lidar, '/robot/lidar', 10)
         self.pub_lidar_obstacles = self.create_publisher(Lidar, '/robot/lidar_obstacles', 10)
         self.pub_encoders = self.create_publisher(RPMs, '/robot/encoders', 10)
@@ -188,9 +187,7 @@ class SimulationNode(Node):
         self.current_rpms[2] = real_w_rr * coef_inv
         self.current_rpms[3] = real_w_bl * coef_inv
         
-    def publish_sensors(self):
-        self.pub_health.publish(Health(state="OK", name="driver"))
-        
+    def publish_sensors(self):        
         # --- ENCODERS ---
         rpm_msg = RPMs()
         rpm_msg.front_left_rpm = float(self.current_rpms[0])
