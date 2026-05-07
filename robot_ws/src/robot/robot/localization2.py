@@ -21,6 +21,8 @@ class LocalizationNode(Node):
         # -- Etat interne de la position --
         self.position = np.array([0., 0.])
         self.prev_position = np.array([0., 0.])
+        self.theta = 0.0
+        self.prev_theta = 0.0
         self.prev_lidar_points = None
         self.lidar_points = None
 
@@ -35,7 +37,7 @@ class LocalizationNode(Node):
         self.pub_pos = self.create_publisher(Pose2D, '/robot/pos', 10)
 
         self.get_logger().info("Noeud Localization (Encodeurs et Lidar) démarré")
-        self.test_icp()
+        # self.test_lidar_pos()
 
     # -- Callback lent : Correction Lidar --
     def lidar_callback(self, msg: Lidar):
@@ -52,14 +54,23 @@ class LocalizationNode(Node):
 
         rotation, translation = self.icp(self.lidar_points, self.prev_lidar_points)
 
-        self.position = self.prev_position @ rotation.T + translation
+        rot_matrix = np.array([[np.cos(self.theta), -np.sin(self.theta)], [np.sin(self.theta), np.cos(self.theta)]])
+
+        self.position = rot_matrix @ translation + self.prev_position
+
+        delta_theta = np.arctan2(rotation[1, 0], rotation[0, 0])
+        self.theta = self._angle_wrap(self.prev_theta + delta_theta)
+
+        self.prev_position = self.position.copy()
+        self.prev_theta = self.theta
+        self.prev_lidar_points = self.lidar_points.copy()
 
         self._publish_pose()
 
     # -- Méthodes utilitaires --
 
     def get_points(self, scan: Lidar):
-        """Convertit un scan Lidar en nuage de points cartésiens dans le repère Global."""
+        """Convertit un scan Lidar en nuage de points cartésiens"""
         points = []
 
         for angle, dist in zip(scan.angles, scan.distances):
@@ -70,7 +81,7 @@ class LocalizationNode(Node):
     def icp(self, source: NDArray[np.float64], target: NDArray[np.float64]):
 
         MAX_ITERATIONS = 50
-        MATCH_DISTANCE_THRESHOLD = 10
+        MATCH_DISTANCE_THRESHOLD = 0.1
         TOLERANCE = 1e-6
 
         def find_closest_match(point: NDArray[np.float64]):
@@ -131,6 +142,9 @@ class LocalizationNode(Node):
                 if match is not None: #filter bad matches
                     filtered_src.append(src_point)
                     matched_targets.append(match)
+
+            if len(filtered_src) < 3: # Need at least a few points to guess a transform
+                return total_rotation, total_translation
 
             # Compute optimal transformation
             rotation, translation = best_transformation(np.array(filtered_src), np.array(matched_targets))
@@ -194,6 +208,25 @@ class LocalizationNode(Node):
                 print(f"angle gap {r_error}")
                 count += 1
         print(f"count {count}")
+
+    def test_lidar_pos(self):
+
+        init_scan = np.array([[3, 3], [3, 0], [3, -3]])
+        #post_scan = np.array([[2, 3], [2, 0], [2, -3]])
+        post_scan = np.array([[0, -2], [-2, -2], [-2, -2]])
+        init_rot = np.radians(0)
+
+        rotation, translation = self.icp(post_scan, init_scan)
+
+        rot_matrix = np.array([[np.cos(init_rot), -np.sin(init_rot)], [np.sin(init_rot), np.cos(init_rot)]])
+
+        tra = (rot_matrix @ translation.T).T
+
+        delta_theta = np.arctan2(rotation[1, 0], rotation[0, 0])
+        print(tra)
+        print(delta_theta)
+
+
 
 def main():
     rclpy.init()

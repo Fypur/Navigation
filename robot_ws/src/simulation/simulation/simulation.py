@@ -67,10 +67,10 @@ class SimulationNode(Node):
         # Largeur: 12m (-6 à 6), Hauteur: 8m (-4 à 4)
         walls_segments = [
             # Murs extérieurs
-            pymunk.Segment(static_body, (-5.5, 3.5), (5.5, 3.5), 0.03),
-            pymunk.Segment(static_body, (5.5, 3.5), (5.5, -3.5), 0.03),
-            pymunk.Segment(static_body, (5.5, -3.5), (-5.5, -3.5), 0.03),
-            pymunk.Segment(static_body, (-5.5, -3.5), (-5.5, 3.5), 0.03),
+            pymunk.Segment(static_body, (-3.5, 3.5), (3.5, 3.5), 0.03),
+            pymunk.Segment(static_body, (3.5, 3.5), (3.5, -3.5), 0.03),
+            pymunk.Segment(static_body, (3.5, -3.5), (-3.5, -3.5), 0.03),
+            pymunk.Segment(static_body, (-3.5, -3.5), (-3.5, 3.5), 0.03),
             
             # Obstacles intérieurs
             pymunk.Segment(static_body, (-3.5, 2.0), (-1.5, 0.0), 0.05),
@@ -216,7 +216,7 @@ class SimulationNode(Node):
             query = self.space.segment_query_first(robot_pos, end_point, 0.01, lidar_filter)
             
             if query:
-                dist_m = robot_pos.get_distance(query.point)
+                dist_m = query.alpha * max_range_m # Distance le long du rayon
                 self.hit_points.append(query.point)
             else:
                 dist_m = max_range_m
