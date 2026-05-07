@@ -172,7 +172,12 @@ class Automatic(SteadyNode):
         # COrrection angulaire pour aligner l robot sur la direction de la force
         desired_heading = math.atan2(fy, fx)
         heading_error = angle_wrap(desired_heading - self.robot_theta)
-        w = 1.0 * heading_error # gain angulaire (à ajuster)
+        w = 0.2 * heading_error # gain angulaire (pour pas que ça tourne trop vite pour l'algo de localization.py
+        
+        # Réduction de la vitesse linéaire si l'erreur de cap est grande, pour éviter les zigzags
+        translation_factor = max(0.0, 1.0 - (abs(heading_error) / (math.pi / 4.0)))
+        vx *= translation_factor
+        vy *= translation_factor
         
         return vx, vy, w
             

@@ -1,3 +1,5 @@
+import random
+
 import rclpy
 from rclpy.node import Node
 from msgs.msg import Lidar, RPMs
@@ -7,6 +9,7 @@ import numpy as np
 import time
 from scipy.spatial import KDTree
 import matplotlib.pyplot as plt
+import pymunk
 
 WHEEL_RADIUS = 0.04
 LX = 0.15
@@ -59,7 +62,13 @@ class LocalizationNode(Node):
         self.prev_y = 0.0
         self.theta = 0.0
         self.prev_theta = 0.0
+        #self.prev_global_points = None
         self.last_time = time.time()
+        self.walls = None
+        
+        plt.ion() # Active le mode interactif (non-bloquant)
+        self.fig, self.ax = plt.subplots(figsize=(6, 6))
+        self.fig.canvas.manager.set_window_title('Localisation Lidar Live')
         
         # -- Abonnements aux topics --
         
@@ -67,7 +76,7 @@ class LocalizationNode(Node):
         self.create_subscription (RPMs, '/robot/encoders', self.encoders_callback, 1)
         
         # Abonnement au Lidar pour la correction (Basse fréquence)
-        #self.create_subscription (Lidar, '/robot/lidar', self.lidar_callback, 1)
+        self.create_subscription (Lidar, '/robot/lidar', self.lidar_callback, 1)
         
         # -- Publication --
         self.pub_pos = self.create_publisher(Pose2D, '/robot/pos', 10)
@@ -86,6 +95,11 @@ class LocalizationNode(Node):
         w_fr = msg.front_right_rpm * coef
         w_rl = msg.back_left_rpm * coef
         w_rr = msg.back_right_rpm * coef
+        
+        if w_fl < 5 and w_fr < 5 and w_rl < 5 and w_rr < 5:
+            # Si les roues tournent à moins de 5 RPM, on considère que le robot est à l'arrêt
+            # pour éviter les dérives dues au bruit des encodeurs à basse vitesse.
+            return
         
         # Modele cinématique inverse pour châssis 4 roues (Mécanum)
         vx = (WHEEL_RADIUS / 4.0) * ( w_fl + w_fr + w_rl + w_rr)
@@ -109,84 +123,239 @@ class LocalizationNode(Node):
         # Publier la position estimee fluide
         self._publish_pose()
         
+    def _extract_walls_from_scan(self, msg: Lidar, rx, ry, r_theta):
+        """
+        Reconstruit les murs en zippant les angles et les distances du message ROS.
+        """
+        MAX_SEGMENT_DIST = 15#0.5
+        LIDAR_RANGE = 6.0
+        MAX_GAP_DIST = 0.5  # Distance max entre deux points pour rester sur le même mur
+        new_walls = [
+            # Murs extérieurs
+            ((-3.5, 3.5), (3.5, 3.5)),
+            ((3.5, 3.5), (3.5, -3.5)),
+            ((3.5, -3.5), (-3.5, -3.5)),
+            ((-3.5, -3.5), (-3.5, 3.5)),
+            
+            # Obstacles intérieurs
+            ((-3.5, 2.0), (-1.5, 0.0)),
+            ((2.0, 2.5), (2.0, -1.5)),
+            ((-2.0, -2.5), (0.5, -2.5))
+        ]
+        return new_walls
+        start_point = None
+        prev_point = None
+        
+        for angle_relatif, r in zip(msg.angles, msg.distances):
+            # Si le rayon touche un obstacle valide
+            if math.isfinite(r) and r < LIDAR_RANGE:
+                angle_global = r_theta + angle_relatif
+                gx = rx + r * math.cos(angle_global)
+                gy = ry + r * math.sin(angle_global)
+                curr_point = (gx, gy)
+                
+                if prev_point is None:
+                    # 1. Aucun mur en cours, on démarre un nouveau mur
+                    start_point = curr_point
+                else:
+                    # 2. Un mur est en cours, on vérifie la continuité
+                    dist = math.hypot(gx - prev_point[0], gy - prev_point[1])
+                    if dist >= MAX_GAP_DIST:
+                        # Cassure (fin du mur ou nouvel obstacle) : on clôture le mur en cours
+                        if start_point != prev_point:
+                            new_walls.append((start_point, prev_point))
+                        # Le point actuel devient le début du nouveau mur
+                        start_point = curr_point
+                
+                # On avance
+                prev_point = curr_point
+                
+            # Si le rayon est vide (ne touche rien)
+            else:
+                # 3. On clôture le mur en cours (s'il y en a un et qu'il fait plus d'un point)
+                if start_point is not None and prev_point is not None and start_point != prev_point:
+                    new_walls.append((start_point, prev_point))
+                
+                # On réinitialise pour attendre le prochain obstacle
+                start_point = None
+                prev_point = None
+                
+        # 4. En sortant de la boucle, on n'oublie pas de sauvegarder le tout dernier mur en cours
+        if start_point is not None and prev_point is not None and start_point != prev_point:
+            new_walls.append((start_point, prev_point))
+            
+        return new_walls
+      
+    def _plot_walls_live(self):
+            """
+            Met à jour la figure Matplotlib pour dessiner le robot et les murs extraits.
+            """
+            self.ax.clear() # Efface le dessin précédent
+            LIDAR_RANGE = 6.0
+            
+            # Dessiner le robot (un point rouge)
+            self.ax.plot(self.x, self.y, 'ro', markersize=8, label='Robot')
+            
+            # Dessiner une ligne indiquant l'orientation (cap) du robot
+            dx = math.cos(self.theta) * 0.5
+            dy = math.sin(self.theta) * 0.5
+            self.ax.plot([self.x, self.x + dx], [self.y, self.y + dy], 'r-', linewidth=2)
+            
+            # Dessiner tous les segments de murs enregistrés (lignes bleues)
+            for p1, p2 in self.walls:
+                self.ax.plot([p1[0], p2[0]], [p1[1], p2[1]], 'b-', linewidth=2)
+                
+            # Paramètres d'affichage (garder des proportions égales pour ne pas déformer la carte)
+            self.ax.set_aspect('equal')
+            # Centrer la caméra sur le robot avec une marge de vision
+            self.ax.set_xlim(self.x - LIDAR_RANGE, self.x + LIDAR_RANGE)
+            self.ax.set_ylim(self.y - LIDAR_RANGE, self.y + LIDAR_RANGE)
+            self.ax.set_title(f"Murs Locaux - {len(self.walls)} segments")
+            self.ax.grid(True)
+            
+            # Mettre à jour l'interface graphique brièvement (permet de ne pas bloquer ROS)
+            plt.pause(0.001)
+    
     # -- Callback lent : Correction Lidar --
     def lidar_callback(self, msg: Lidar):
         """
-        Recalage de la position via l'environnement pour annuler la dérive
-        des encodeurs.
         """
-        try:
-            # On projette le scan reçu dans le repère global en utilisant la position dérivée
-            #pts_curr_global = self._get_global_points(msg)
-
-            # Initialisation
-            if not hasattr(self, 'prev_global_points'):
-                #self.prev_global_points = pts_curr_global
-                #self.prev_x, self.prev_y, self.prev_theta = self.x, self.y, self.theta
-                self.prev_x, self.prev_y, self.prev_theta = self.x, self.y, self.theta
-                self.prev_global_points = self._get_global_points(msg, self.prev_x, self.prev_y, self.prev_theta)
+        LIDAR_SAMPLES = 360
+        LIDAR_RANGE = 6.0
+        
+        def _simulate_lidar_scan(rx, ry, r_theta, walls, msg_angles):
+            """
+            Génère un scan Lidar théorique en tirant des rayons contre les murs connus.
+            Remplace complètement le besoin d'un moteur physique comme Pymunk.
+            """
+            theo_distances = []
+            max_range_m = 6.0
+            
+            for angle_relatif in msg_angles:
+                global_angle = r_theta + angle_relatif
                 
-                #print(self.prev_global_points)
-                #print(self.prev_x, self.prev_y, self.prev_theta)
-                return
-
-            pts_curr_global = self._get_global_points(msg, self.prev_x, self.prev_y, self.prev_theta)
-            
-            
-            
-            
-            # Calcul de la transformation ICP entre le scan actuel et le scan précédent
-            R, translation, dtheta = self._run_icp_papa(self.prev_global_points, pts_curr_global)
-            
-
-            if R is not None:
-                self.x,self.y,self.theta = self.update_robot_pose(self.prev_x, self.prev_y, self.prev_theta, dtheta, translation)
-                # Appliquer la transformation mathématique à la position du robot
-                #robot_pos = np.array([self.prev_x, self.prev_y])
-                #new_pos = R @ robot_pos + translation
+                # Point de départ (robot) et point d'arrivée (bout du rayon Lidar)
+                x1, y1 = rx, ry
+                x2 = x1 + math.cos(global_angle) * max_range_m
+                y2 = y1 + math.sin(global_angle) * max_range_m
                 
-                #self.x = new_pos[0]
-                #self.y = new_pos[1]
-                #self.theta = self._angle_wrap(self.prev_theta + dtheta)
-                #print('translation : {translation}, R : {R}'.format(translation=translation, R=R))
-
-                # Le nouveau scan "corrigé" devient la référence pour le prochain coup
-                self.prev_global_points = pts_curr_global #self._get_global_points(msg)
-                self.prev_x, self.prev_y, self.prev_theta = self.x, self.y, self.theta
+                closest_dist = max_range_m
                 
-            else:
-                # Si l'ICP échoue (peu de murs), on met à jour la référence avec l'odométrie
-                self.prev_global_points = pts_curr_global
-                self.prev_x, self.prev_y, self.prev_theta = self.x, self.y, self.theta
+                # --- Raycasting contre chaque segment de mur ---
+                for p1, p2 in walls:
+                    # Calcul de l'intersection de deux segments (Rayon Lidar VS Mur)
+                    den = (p2[0] - p1[0]) * (y1 - y2) - (x1 - x2) * (p2[1] - p1[1])
+                    
+                    # Si le dénominateur est 0, le rayon et le mur sont parfaitement parallèles
+                    if den == 0: 
+                        continue
+                    
+                    # t = position sur le mur (0 = début du mur, 1 = fin du mur)
+                    # u = position sur le rayon Lidar (0 = centre du robot, 1 = bout du laser à 6m)
+                    t = ((p1[0] - x1) * (y1 - y2) - (p1[1] - y1) * (x1 - x2)) / den
+                    u = ((p1[0] - x1) * (p2[1] - p1[1]) - (p1[1] - y1) * (p2[0] - p1[0])) / den
+                    
+                    # Si on touche le segment du mur (0 <= t <= 1) avec l'avant du rayon Lidar (0 <= u <= 1)
+                    if 0 <= t <= 1 and 0 <= u <= 1:
+                        # La distance d'impact est simplement u * la longueur totale du laser
+                        dist_m = u * max_range_m
+                        
+                        # On garde uniquement l'obstacle le plus proche pour cet angle
+                        if dist_m < closest_dist:
+                            closest_dist = dist_m
+                            
+                theo_distances.append(closest_dist)
+                
+            return theo_distances
+        
+        '''def get_lidar_scan(rx, ry, r_angle, walls):
+            scan = []
+            for i in range(LIDAR_SAMPLES):
+                angle = r_angle + i * (2 * math.pi / LIDAR_SAMPLES)
+                closest = LIDAR_RANGE
+                x1, y1 = rx, ry
+                x2, y2 = x1 + math.cos(angle) * LIDAR_RANGE, y1 + math.sin(angle) * LIDAR_RANGE
+                for p1, p2 in walls:
+                    den = (p2[0]-p1[0])*(y1-y2) - (x1-x2)*(p2[1]-p1[1])
+                    if den == 0: continue
+                    t = ((p1[0]-x1)*(y1-y2) - (p1[1]-y1)*(x1-x2)) / den
+                    u = ((p1[0]-x1)*(p2[1]-p1[1]) - (p1[1]-y1)*(p2[0]-p1[0])) / den
+                    if 0 <= t <= 1 and 0 <= u <= 1:
+                        dist = t * math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)# dist = u * LIDAR_RANGE
+                        if dist < closest: closest = dist
+                        
+                scan.append((closest, angle - r_angle))
+            return scan'''
+        
 
-            #print(self.prev_global_points)
-            #print(self.prev_x, self.prev_y, self.prev_theta)
+        def compute_fitness(tx, ty, ta, real_scan, walls):
+            theo_scan = _simulate_lidar_scan(tx, ty, ta, walls, real_scan.angles)
+            score = 0.0
+
+            for r,t in zip(real_scan.distances, theo_scan):
+                #theo_dist = t[0]
+                if math.isfinite(r):
+                    score += abs(r - t)
+            return score
+        
+        if self.walls is None:
+            self.walls = self._extract_walls_from_scan(msg, self.x, self.y, self.theta)
+            print(self.walls)
+            return
+        
+        x = self.x
+        y = self.y
+        theta = self.theta
+        best_pos = (x, y, theta)
+        #real_scan = []
+        #for i in range(len(msg.distances)):
+            #real_scan.append((msg.distances[i], msg.angles[i]))
             
-            self._publish_pose()
+        best_score = compute_fitness(x, y, theta, msg, self.walls)
+        print("before,best scrore = {:.2f}, x = {:.2f}, y = {:.2f}, theta = {:.1f}°".format(best_score, self.x, self.y, math.degrees(self.theta)))
 
-        except Exception as e:
-            self.get_logger().error(f"Erreur ICP Lidar : {e}")
+        
+        for _ in range(30): # Augmenté à 30 pour plus de stabilité
+            cand_x = x + random.uniform(-0.15, 0.15)
+            cand_y = y + random.uniform(-0.15, 0.15)
+            cand_a = self._angle_wrap(theta + random.uniform(-0.1, 0.1))
+            score = compute_fitness(cand_x, cand_y, cand_a, msg, self.walls)
+            if score < best_score:
+                best_score, best_pos = score, (cand_x, cand_y, cand_a)
+                print(best_pos, best_score)
+                
+        if abs(best_pos[0] - self.x) > 0.05 or abs(best_pos[1] - self.y) > 0.05 or abs(self._angle_wrap(best_pos[2] - self.theta)) > math.radians(5):        
+            self.x, self.y, self.theta = best_pos
+            
+        print("after, x = {:.2f}, y = {:.2f}, theta = {:.1f}°".format(self.x, self.y, math.degrees(self.theta)))
+        self._publish_pose()
+        
+        self.walls = self._extract_walls_from_scan(msg, self.x, self.y, self.theta)
+        self._plot_walls_live()
+        
         
     
-    # -- Méthodes utilitaires --
-    
-    def _get_global_points(self, scan, ref_x, ref_y, ref_theta):
-        """Convertit un scan Lidar en nuage de points cartésiens dans le repère Global."""
-        points = []
-        cos_t = math.cos(ref_theta)
-        sin_t = math.sin(ref_theta)
+            
         
-        for angle, dist in zip(scan.angles, scan.distances):
-            # On accepte les obstacles jusqu'à 5.95m
-            # Les points à 6.0m sont ignorés car c'est le "vide" renvoyé par la simulation
-            if math.isfinite(dist) and 0.05 < dist < 5.95: 
-                lx = dist * math.cos(angle)
-                ly = dist * math.sin(angle)
-                gx = ref_x + lx * cos_t - ly * sin_t
-                gy = ref_y + lx * sin_t + ly * cos_t
-                points.append((gx, gy))
-                
-        return np.array(points)
+        # -- Méthodes utilitaires --
+        
+        def _get_global_points(self, scan, ref_x, ref_y, ref_theta):
+            """Convertit un scan Lidar en nuage de points cartésiens dans le repère Global."""
+            points = []
+            cos_t = math.cos(ref_theta)
+            sin_t = math.sin(ref_theta)
+            
+            for angle, dist in zip(scan.angles, scan.distances):
+                # On accepte les obstacles jusqu'à 5.95m
+                # Les points à 6.0m sont ignorés car c'est le "vide" renvoyé par la simulation
+                if math.isfinite(dist): #and 0.05 < dist < 5.95: 
+                    lx = dist * math.cos(angle)
+                    ly = dist * math.sin(angle)
+                    gx = ref_x + lx * cos_t - ly * sin_t
+                    gy = ref_y + lx * sin_t + ly * cos_t
+                    points.append((gx, gy))
+                    
+            return np.array(points)
     
     
     '''def _run_icp_global(self, pts_prev, pts_curr):
@@ -289,10 +458,10 @@ class LocalizationNode(Node):
 
 
     def update_robot_pose(self, x, y, theta, theta_icp, t_icp):
-        theta_robot, t_robot = self.icp_to_robot_motion(theta_icp, t_icp)
+        #theta_robot, t_robot = self.icp_to_robot_motion(theta_icp, t_icp)
 
         # rotation du déplacement dans le repère monde
-        R_world = np.array([
+        """R_world = np.array([
             [np.cos(theta), -np.sin(theta)],
             [np.sin(theta),  np.cos(theta)]
         ])
@@ -301,13 +470,20 @@ class LocalizationNode(Node):
 
         x_new = x + t_world[0]
         y_new = y + t_world[1]
-        theta_new = theta + theta_robot
+        theta_new = theta + theta_robot"""
         
         '''x_new = math.cos(theta_icp) * x - math.sin(theta_icp) * y + t_icp[0]
         y_new = math.sin(theta_icp) * x + math.cos(theta_icp) * y + t_icp[1]
         
         # Mise à jour de l'angle (addition directe)
         theta_new = self._angle_wrap(theta + theta_icp)'''
+        
+        """x_new = x + t_robot[0]
+        y_new = y + t_robot[1]
+        theta_new = self._angle_wrap(theta + theta_robot)"""
+        x_new = x + t_icp[0]
+        y_new = y + t_icp[1]
+        theta_new = self._angle_wrap(theta + theta_icp)
 
         return x_new, y_new, theta_new
     

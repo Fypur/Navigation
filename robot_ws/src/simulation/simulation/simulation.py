@@ -72,6 +72,7 @@ class SimulationNode(Node):
             pymunk.Segment(static_body, (3.5, -3.5), (-3.5, -3.5), 0.03),
             pymunk.Segment(static_body, (-3.5, -3.5), (-3.5, 3.5), 0.03),
 
+
             # Obstacles intérieurs
             #pymunk.Segment(static_body, (-3.5, 2.0), (-1.5, 0.0), 0.05),
             pymunk.Segment(static_body, (2.0, 2.5), (2.0, -1.5), 0.05),
