@@ -88,6 +88,9 @@ class Automatic(SteadyNode):
     # -- Callbacks --
     
     def enable_auto_callback(self, msg: Bool):
+        if not self.is_auto:
+            return
+
         self.is_auto = msg.data
         if self.is_auto:
             self.get_logger().info("Mode AUTOMATIQUE activé.")
@@ -231,7 +234,7 @@ class Automatic(SteadyNode):
     
     def _stop(self):
         cmd = RPMs()
-        cmd.front_left_rpm = cmd.front_right_rpm = cmd.back_right_rpm = cmd.back_left_rpm = 0
+        cmd.front_left_rpm = cmd.front_right_rpm = cmd.back_right_rpm = cmd.back_left_rpm = 0.0
         self.pub_cmd.publish(cmd)
         
     # -- Public -- 
