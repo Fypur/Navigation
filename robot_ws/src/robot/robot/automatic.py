@@ -15,7 +15,7 @@ import rclpy
 from msgs.msg import Lidar, Command, RPMs
 from geometry_msgs.msg import Pose2D, Point
 from std_msgs.msg import Bool
-from robot.robot_config import (MAX_RPM, K_ATT, K_REP, APF_D0, APF_MIN_DIST,
+from robot.robot_config import (MAX_RPM, MIN_RPM, K_ATT, K_REP, APF_D0, APF_MIN_DIST,
                                 GOAL_RADIUS, ROBOT_RADIUS, angle_wrap,
                                 DEFAULT_GOAL_X, DEFAULT_GOAL_Y,
                                 APF_MAX_LINEAR_FORCE, APF_MAX_ANGULAR_FORCE,
@@ -202,14 +202,19 @@ class Automatic(SteadyNode):
         rr /= max_val
         rl /= max_val
         
-        #def to_pwm(v: float):
-            #return int(v * MAX_RPM)
+        
+        def to_real_rpm(norm_val: float) -> float:
+            if abs(norm_val) < 0.02: 
+                return 0.0
+            vitesse_reelle = MIN_RPM + (MAX_RPM - MIN_RPM) * abs(norm_val)
+            return math.copysign(vitesse_reelle, norm_val)
         
         cmd = RPMs()
-        cmd.front_left_rpm = float(fl * MAX_RPM)
-        cmd.front_right_rpm = float(fr * MAX_RPM)
-        cmd.back_right_rpm = float(rr * MAX_RPM)
-        cmd.back_left_rpm = float(rl * MAX_RPM)
+        cmd.front_left_rpm = float(to_real_rpm(fl))
+        cmd.front_right_rpm = float(to_real_rpm(fr))
+        cmd.back_right_rpm = float(to_real_rpm(rr))
+        cmd.back_left_rpm = float(to_real_rpm(rl))
+ 
 
         self.pub_cmd.publish(cmd)
         self.get_logger().debug(

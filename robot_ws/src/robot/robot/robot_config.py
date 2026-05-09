@@ -1,12 +1,12 @@
 import math
 
 # -- Console --
-DEFAULT_RPM = 150.0  # RPM par défaut envoyé aux roues (même échelle que la console)
+DEFAULT_RPM = 150.0  # RPM par défaut envoyé aux roues
 
 # -- Automatic --
-K_ATT                 = 1.5            # Gain du champ attractif
+K_ATT                 = 8.0            # Gain du champ attractif #1.5
 K_REP                 = 0.8            # Gain du champ répulsif
-APF_D0                = 0.5            # Rayon d'influence des obstacles (m) — doit correspondre à LIDAR_OBSTACLE_RANGE
+APF_D0                = 2.0            # Rayon d'influence des obstacles (m) — doit correspondre à LIDAR_OBSTACLE_RANGE
 APF_MIN_DIST          = 0.05           # Distance plancher pour éviter la division par zéro (m)
 GOAL_RADIUS           = 0.2            # Distance en dessous de laquelle la cible est considérée atteinte (m)
 DEFAULT_GOAL_X        = 1.0            # Position cible par défaut en x (m)
@@ -41,6 +41,7 @@ ROBOT_SIZE   = 0.80  # Taille du robot pour la détection de collision (m)
 
 # -- Paramètres des actionneurs --
 MAX_RPM = 160.0  # RPM maximum envoyé aux roues (même échelle que la console)
+MIN_RPM = 100.0  # RPM minimum envoyé aux roues 
 
 
 # -- Paramètres du Lidar --
