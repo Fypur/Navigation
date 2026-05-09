@@ -28,10 +28,11 @@ class Encoders(SteadyNode):
 
     class EncoderSignalPin:
 
-        def __init__(self, a_pin: int, b_pin: int, logger) -> None:
+        def __init__(self, a_pin: int, b_pin: int, reversed: bool, logger) -> None:
             # pin setup
             self.a_pin = a_pin
             self.b_pin = b_pin
+            self.reversed_motor = reversed
             self.sliding_average_window = 0.3 #we do a sliding average over 0.3s in order to keep the readings stable
             GPIO.setup(self.a_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             GPIO.setup(self.b_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -44,7 +45,7 @@ class Encoders(SteadyNode):
                                   GPIO.FALLING,
                                   callback=(lambda channel: self.encoder_pulse()))
 
-            self.encoder_pulse_timestamps = collections.deque()  # modified when the encoder pulses, so when the wheel spins by a certain amount
+            self.positive_encoder_pulse_timestamps = collections.deque()  # modified when the encoder pulses, so when the wheel spins by a certain amount
             self.negative_encoder_pulse_timestamps = collections.deque()
             self.rpm = 0.
 
@@ -52,7 +53,7 @@ class Encoders(SteadyNode):
             # self.logger.debug(f"pin {self.b_pin} encoder pulse")
 
             #if GPIO.input(self.a_pin) == GPIO.LOW:
-            self.encoder_pulse_timestamps.append(time.time())
+            self.positive_encoder_pulse_timestamps.append(time.time())
             #else:
             #    self.negative_encoder_pulse_timestamps.append(time.time())
 
@@ -71,11 +72,12 @@ class Encoders(SteadyNode):
                     else:
                         break
 
-            remove_old_timestamps(self.encoder_pulse_timestamps)
+            remove_old_timestamps(self.positive_encoder_pulse_timestamps)
             remove_old_timestamps(self.negative_encoder_pulse_timestamps)
 
-            encoder_pulse_count = len(self.encoder_pulse_timestamps) - len(self.negative_encoder_pulse_timestamps)
+            encoder_pulse_count = len(self.positive_encoder_pulse_timestamps) - len(self.negative_encoder_pulse_timestamps)
             self.rpm = 60 * encoder_pulse_count / (self.sliding_average_window * 234.3)
+            #self.rpm = -abs(self.rpm) if self.reversed_motor else self.rpm
 
             return self.rpm
 
@@ -86,10 +88,10 @@ class Encoders(SteadyNode):
         GPIO.setmode(GPIO.BCM)
         logger = self.get_logger()
         self.encoderSignalPins = [
-            self.EncoderSignalPin(PinMap.ENCODER_FRONT_LEFT_A, PinMap.ENCODER_FRONT_LEFT_B, logger),
-            self.EncoderSignalPin(PinMap.ENCODER_FRONT_RIGHT_A, PinMap.ENCODER_FRONT_RIGHT_B, logger),
-            self.EncoderSignalPin(PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, logger),
-            self.EncoderSignalPin(PinMap.ENCODER_BACK_LEFT_A, PinMap.ENCODER_BACK_LEFT_B, logger),
+            self.EncoderSignalPin(PinMap.ENCODER_FRONT_LEFT_A, PinMap.ENCODER_FRONT_LEFT_B, False, logger),
+            self.EncoderSignalPin(PinMap.ENCODER_FRONT_RIGHT_A, PinMap.ENCODER_FRONT_RIGHT_B, True, logger),
+            self.EncoderSignalPin(PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, False, logger),
+            self.EncoderSignalPin(PinMap.ENCODER_BACK_LEFT_A, PinMap.ENCODER_BACK_LEFT_B, False, logger),
         ]
 
         self.pub = self.create_publisher(RPMs, "/robot/encoders", 10)
