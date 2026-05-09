@@ -2,7 +2,7 @@ import rclpy
 import math
 import dearpygui.dearpygui as dpg
 from robot.steady_node import SteadyNode
-from msgs.msg import RPMs
+from msgs.msg import RPMs, WheelSpeeds
 import numpy as np
 
 #this was written using AI, use it to look at what the lidar sees in real time
@@ -10,15 +10,16 @@ import numpy as np
 class AsservVisualizer(SteadyNode):
 
     class WheelPlot():
-        def __init__(self, wheel_name : str) -> None:
+        def __init__(self, wheel_name : str, pwm_signal: bool) -> None:
             self.data_x = np.array([])
             self.data_y = np.array([])
             self.time = 0.0
             self.cmd_line = None
+            self.height = 256 if pwm_signal else 180
 
-            with dpg.plot(label=wheel_name, height=200, width=-1):
+            with dpg.plot(label=wheel_name, width=600, height=200):
                 self.x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Time (s)")
-                self.y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="RPM")
+                self.y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="RPM/PWM")
 
                 # Create an empty scatter series to hold our points
                 self.line_series = dpg.add_line_series([], [], parent=self.y_axis)
@@ -32,7 +33,8 @@ class AsservVisualizer(SteadyNode):
                 self.data_y = self.data_y[-100:]
 
             dpg.set_value(self.line_series, [self.data_x, self.data_y])
-            dpg.set_axis_limits(self.y_axis, 0, 150)
+
+            dpg.set_axis_limits(self.y_axis, 0, self.height)
             dpg.fit_axis_data(self.x_axis)
 
         def set_command(self, rpm_cmd):
@@ -46,36 +48,49 @@ class AsservVisualizer(SteadyNode):
 
         # --- DearPyGui Setup ---
         dpg.create_context()
-        dpg.create_viewport(title='Asserv Visualization', width=800, height=800)
+        dpg.create_viewport(title='Asserv Visualization', width=1200, height=800)
         dpg.setup_dearpygui()
 
         # Create the window and graph on initialization
-        with dpg.window(label="Asserv Window", width=800, height=800, no_collapse=True) as self.window:
-            wheel_names = ["Front Left", "Front Right", "Back Right", "Back Left"]
-            with dpg.group():
-                self.wheelPlots = [self.WheelPlot(name) for name in wheel_names]
+        with dpg.window(label="Asserv Window", width=1200, height=800, no_collapse=True) as self.window:
+            wheel_names = [
+                "Front Left", "Front Right", "Back Right", "Back Left", "Front Left PWM", "Front Right PWM", "Back Right PWM",
+                "Back Left PWM"
+            ]
+            self.wheelPlots = []
+            for i in range(4):
+                with dpg.group(horizontal=True):
+                    self.wheelPlots.append(self.WheelPlot(wheel_names[i], False))
+                    self.wheelPlots.append(self.WheelPlot(wheel_names[i+4], True))
 
         dpg.show_viewport()
 
         # --- ROS Setup ---
         self.create_subscription(RPMs, '/robot/encoders', self.encoder_callback, 10)
         self.create_subscription(RPMs, '/robot/command', self.cmd_callback, 10)
+        self.create_subscription(WheelSpeeds, '/robot/wheels', self.wheel_speeds_callback, 10)
         self.get_logger().info("Asserv visualizer node successfully launched")
 
     def encoder_callback(self, msg: RPMs):
-        self.get_logger().debug(
+        self.get_logger().info(
             f"received measured RPMS: {msg.front_left_rpm}, {msg.front_right_rpm}, {msg.back_right_rpm}, {msg.back_left_rpm}")
 
         self.wheelPlots[0].add_data(abs(msg.front_left_rpm))
-        self.wheelPlots[1].add_data(abs(msg.front_right_rpm))
-        self.wheelPlots[2].add_data(abs(msg.back_right_rpm))
-        self.wheelPlots[3].add_data(abs(msg.back_left_rpm))
+        self.wheelPlots[2].add_data(abs(msg.front_right_rpm))
+        self.wheelPlots[4].add_data(abs(msg.back_right_rpm))
+        self.wheelPlots[6].add_data(abs(msg.back_left_rpm))
 
     def cmd_callback(self, msg: RPMs):
         self.wheelPlots[0].set_command(abs(msg.front_left_rpm))
-        self.wheelPlots[1].set_command(abs(msg.front_right_rpm))
-        self.wheelPlots[2].set_command(abs(msg.back_right_rpm))
-        self.wheelPlots[3].set_command(abs(msg.back_left_rpm))
+        self.wheelPlots[2].set_command(abs(msg.front_right_rpm))
+        self.wheelPlots[4].set_command(abs(msg.back_right_rpm))
+        self.wheelPlots[6].set_command(abs(msg.back_left_rpm))
+
+    def wheel_speeds_callback(self, msg: WheelSpeeds):
+        self.wheelPlots[1].add_data(abs(msg.front_left_wheel_speed))
+        self.wheelPlots[3].add_data(abs(msg.front_right_wheel_speed))
+        self.wheelPlots[5].add_data(abs(msg.back_right_wheel_speed))
+        self.wheelPlots[7].add_data(abs(msg.back_left_wheel_speed))
 
     def destroy_node(self):
         # Destroy the GUI context when the node is destroyed

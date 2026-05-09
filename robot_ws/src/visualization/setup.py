@@ -21,8 +21,9 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'lidar = lidar.lidar_visualizer:main',
-            'asserv = asserv.asserv_visualizer:main',
+            'lidar = visualization.lidar_visualizer:main',
+            'asserv = visualization.asserv_visualizer:main',
+            'position = visualization.pos_visualizer:main',
         ],
     },
 )
