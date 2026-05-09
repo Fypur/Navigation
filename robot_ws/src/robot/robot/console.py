@@ -4,8 +4,7 @@ from msgs.msg import RPMs, AsservParamChange
 from geometry_msgs.msg import Point
 from std_msgs.msg import Bool
 from msgs.msg import RPMs, AsservParamChange, WheelSpeeds
-
-DEFAULT_RPM = 150.0
+from robot.robot_config import DEFAULT_RPM
 
 
 class Console(SteadyNode):
@@ -84,6 +83,10 @@ class Console(SteadyNode):
             goal_msg.z = 0.0
             self.pub_goal.publish(goal_msg)
         elif command_name == "setrpm":
+            msg = Bool()
+            msg.data = False
+            self.pub_enable_auto.publish(msg)
+
             m = RPMs()
             if len(split_cmd) == 1:
                 m.front_left_rpm = DEFAULT_RPM

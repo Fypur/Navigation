@@ -15,32 +15,12 @@ import rclpy
 from msgs.msg import Lidar, Command, RPMs
 from geometry_msgs.msg import Pose2D, Point
 from std_msgs.msg import Bool
+from robot.robot_config import (MAX_RPM, K_ATT, K_REP, APF_D0, APF_MIN_DIST,
+                                GOAL_RADIUS, ROBOT_RADIUS, angle_wrap,
+                                DEFAULT_GOAL_X, DEFAULT_GOAL_Y,
+                                APF_MAX_LINEAR_FORCE, APF_MAX_ANGULAR_FORCE,
+                                AUTO_LOOP_HZ, APF_HEADING_GAIN, APF_HEADING_TOLERANCE)
 
-# -- Paramètres à ajuster --
-
-# -- Cible à atteindre (en mètres dans le repère de départ) --
-GOAL_X = 1.0
-GOAL_Y = 0.0
-
-# -- Champ attractif --
-K_ATT = 1.5         # gain d'attraction
-GOAL_RADIUS = 0.1   # distance en mètres en-dessous de laquelle la cible est considérée comme atteinte
-
-# -- Champ répulsif --
-K_REP = 0.8     # gain répulsif
-D0 = 0.5        # rayon d'influence des obstacles en mètres : DOIT correspondre à obstacle_range du noeud lidar
-MIN_DIST = 0.05 # distance plancher pour pas diviser par 0
-
-# -- Conversion force -> consigne RPM --
-MAX_SPEED = 160     # valeur RPM max envoyée au noeud control (entier, même echelle que la console)
-MAX_LINEAR_FORCE = 3.0
-MAX_ANGULAR_FORCE = 2.0
-
-# -- Rayon approximatif du robot (m) --
-ROBOT_RADIUS = 0.15
-
-# -- Fréquence de la boucle de contrôle --
-PUBLISH_HZ = 10.0
 
 class Automatic(SteadyNode):
     
@@ -74,12 +54,12 @@ class Automatic(SteadyNode):
         self.robot_y: float = 0.0
         self.robot_theta: float = 0.0
         
-        self.goal_x: float = GOAL_X
-        self.goal_y: float = GOAL_Y
+        self.goal_x: float = DEFAULT_GOAL_X
+        self.goal_y: float = DEFAULT_GOAL_Y
         self.goal_reached = False
         
         # Boucle de controle d'arrivée à destination (fréquence fixe)
-        self.create_timer(1.0 / PUBLISH_HZ, self.control_loop)
+        self.create_timer(1.0 / AUTO_LOOP_HZ, self.control_loop)
         
         self.get_logger().info(
             f"Noeud Automatic lancé - cible : ({self.goal_x:.2f},{self.goal_y:.2f})"
@@ -88,15 +68,14 @@ class Automatic(SteadyNode):
     # -- Callbacks --
     
     def enable_auto_callback(self, msg: Bool):
-        if not self.is_auto:
-            return
-
-        self.is_auto = msg.data
-        if self.is_auto:
-            self.get_logger().info("Mode AUTOMATIQUE activé.")
-        else:
-            self.get_logger().info("Mode MANUEL activé. Arrêt de la navigation auto.")
-            self._stop() # On force l'arrêt du robot quand on repasse en manuel
+        if self.is_auto != msg.data:
+            if self.is_auto:
+                self._stop()
+                self.is_auto = False
+                self.get_logger().info("Mode MANUEL activé. Arrêt de la navigation auto.")
+            else:
+                self.is_auto = True
+                self.get_logger().info("Mode AUTOMATIQUE activé.")
             
     def goal_callback(self, msg: Point):
         # Appelle la fonction set_goal existante avec les données reçues
@@ -153,15 +132,15 @@ class Automatic(SteadyNode):
 
         fx_rep, fy_rep = 0.0, 0.0
         for angle, d in zip(self.obstacle_angles, self.obstacle_distances):
-            if not math.isfinite(d) or d < MIN_DIST or d > D0:
+            if not math.isfinite(d) or d < APF_MIN_DIST or d > APF_D0:
                 continue
-            d = max(d, MIN_DIST) # éviter les divisions par 0
+            d = max(d, APF_MIN_DIST) # éviter les divisions par 0
             
             # Direction obstacle dans le repère monde
             angle_world = self.robot_theta + angle
             ox = d * math.cos(angle_world)
             oy = d * math.sin(angle_world)
-            coeff = K_REP * (1.0 / d - 1.0 / D0) / (d**2)
+            coeff = K_REP * (1.0 / d - 1.0 / APF_D0) / (d**2)
             # Force opposée à la direction robot -> obstacle
             fx_rep -= coeff * ox / d
             fy_rep -= coeff * oy / d
@@ -183,8 +162,13 @@ class Automatic(SteadyNode):
         
         # COrrection angulaire pour aligner l robot sur la direction de la force
         desired_heading = math.atan2(fy, fx)
-        heading_error = _angle_wrap(desired_heading - self.robot_theta)
-        w = 1.0 * heading_error # gain angulaire (à ajuster)
+        heading_error = angle_wrap(desired_heading - self.robot_theta)
+        w = APF_HEADING_GAIN * heading_error # gain angulaire (pour pas que ça tourne trop vite pour l'algo de localization.py
+        
+        # Réduction de la vitesse linéaire si l'erreur de cap est grande, pour éviter les zigzags
+        translation_factor = max(0.0, 1.0 - (abs(heading_error) / APF_HEADING_TOLERANCE))
+        vx *= translation_factor
+        vy *= translation_factor
         
         return vx, vy, w
             
@@ -201,9 +185,9 @@ class Automatic(SteadyNode):
         """
         
         # Normalisation de la vitesse
-        vx_n = _clamp(vx / MAX_LINEAR_FORCE, -1.0, 1.0)
-        vy_n = _clamp(vy / MAX_LINEAR_FORCE, -1.0, 1.0)
-        w_n = _clamp(w / MAX_ANGULAR_FORCE, -1.0, 1.0)
+        vx_n = _clamp(vx / APF_MAX_LINEAR_FORCE, -1.0, 1.0)
+        vy_n = _clamp(vy / APF_MAX_LINEAR_FORCE, -1.0, 1.0)
+        w_n = _clamp(w / APF_MAX_ANGULAR_FORCE, -1.0, 1.0)
         
         # Modèle cinématique pour un robot à 4 roues toutes directions
         fl = vx_n - vy_n - w_n # avant-gauche
@@ -219,13 +203,14 @@ class Automatic(SteadyNode):
         rl /= max_val
         
         #def to_pwm(v: float):
-            #return int(v * MAX_SPEED)
+            #return int(v * MAX_RPM)
         
         cmd = RPMs()
-        cmd.front_left_rpm = float(fl * MAX_SPEED)
-        cmd.front_right_rpm = float(fr * MAX_SPEED)
-        cmd.back_right_rpm = float(rr * MAX_SPEED)
-        cmd.back_left_rpm = float(rl * MAX_SPEED)
+        cmd.front_left_rpm = float(fl * MAX_RPM)
+        cmd.front_right_rpm = float(fr * MAX_RPM)
+        cmd.back_right_rpm = float(rr * MAX_RPM)
+        cmd.back_left_rpm = float(rl * MAX_RPM)
+ 
 
         self.pub_cmd.publish(cmd)
         self.get_logger().debug(

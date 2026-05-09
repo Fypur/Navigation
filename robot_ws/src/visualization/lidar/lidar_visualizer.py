@@ -9,7 +9,7 @@ from msgs.msg import Lidar
 class LidarVisualizer(SteadyNode):
 
     def __init__(self):
-        super().__init__("Lidar Visualizer")
+        super().__init__("lidar_visualizer")
 
         # --- DearPyGui Setup ---
         dpg.create_context()

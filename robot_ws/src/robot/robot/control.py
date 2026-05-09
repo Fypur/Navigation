@@ -75,9 +75,12 @@ class Control(SteadyNode):
         self.t = self.create_timer(0.1, self.update_wheels)
 
         # init asservissement
-
         def base_pwm(rpmfunc):
-            return lambda rpm: int(copysign(self.binary_search(rpmfunc, abs(rpm)), rpm))
+            def calculate_base_pwm(rpm):
+                if rpm == 0.0:
+                    return 0
+                return int(copysign(self.binary_search(rpmfunc, abs(rpm)), rpm))
+            return calculate_base_pwm
 
         self.wheel_map = {
             "frontleft": 0,
