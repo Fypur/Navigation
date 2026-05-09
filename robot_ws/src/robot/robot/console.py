@@ -4,8 +4,7 @@ from msgs.msg import RPMs, AsservParamChange
 from geometry_msgs.msg import Point
 from std_msgs.msg import Bool
 from msgs.msg import RPMs, AsservParamChange, WheelSpeeds
-
-DEFAULT_RPM = 150.0
+from robot.robot_config import DEFAULT_RPM
 
 
 class Console(SteadyNode):

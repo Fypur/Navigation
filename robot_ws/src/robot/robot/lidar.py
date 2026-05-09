@@ -6,6 +6,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from sensor_msgs.msg import LaserScan
 from msgs.msg import Lidar
+from robot.robot_config import LIDAR_MIN_DIST, LIDAR_MAX_RANGE_M, LIDAR_OBSTACLE_RANGE
 
 # Peut-être pas très utile mais on définit la QoS adaptée aux capteurs : best-effort, depth = 1
 SENSOR_QOS = QoSProfile(
@@ -20,9 +21,9 @@ class LidarNode(Node):
         super().__init__('lidar')
 
         # -- Paramètres déclarés --
-        self.declare_parameter('min_distance', 0.05) # en dessous le bruit est trop proche
-        self.declare_parameter('max_distance', 6.0) # portée du Lidar dans notre cas pas necessairement tres grande
-        self.declare_parameter('obstacle_range', 2.0) # seuil de detection
+        self.declare_parameter('min_distance', LIDAR_MIN_DIST) # en dessous le bruit est trop proche
+        self.declare_parameter('max_distance', LIDAR_MAX_RANGE_M) # portée du Lidar dans notre cas pas necessairement tres grande
+        self.declare_parameter('obstacle_range', LIDAR_OBSTACLE_RANGE) # seuil de detection
         
         self.min_dist = float(self.get_parameter('min_distance').value or 0.05)
         self.max_dist = float(self.get_parameter('max_distance').value or 6.0)

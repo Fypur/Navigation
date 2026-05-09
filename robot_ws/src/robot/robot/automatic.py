@@ -16,20 +16,11 @@ from msgs.msg import Lidar, Command, RPMs
 from geometry_msgs.msg import Pose2D, Point
 from std_msgs.msg import Bool
 from robot.robot_config import (MAX_RPM, K_ATT, K_REP, APF_D0, APF_MIN_DIST,
-                                  GOAL_RADIUS, ROBOT_RADIUS, angle_wrap)
+                                GOAL_RADIUS, ROBOT_RADIUS, angle_wrap,
+                                DEFAULT_GOAL_X, DEFAULT_GOAL_Y,
+                                APF_MAX_LINEAR_FORCE, APF_MAX_ANGULAR_FORCE,
+                                AUTO_LOOP_HZ, APF_HEADING_GAIN, APF_HEADING_TOLERANCE)
 
-# -- Paramètres à ajuster --
-
-# -- Cible à atteindre (en mètres dans le repère de départ) --
-GOAL_X = 1.0
-GOAL_Y = 0.0
-
-# -- Conversion force -> consigne RPM --
-MAX_LINEAR_FORCE = 3.0
-MAX_ANGULAR_FORCE = 2.0
-
-# -- Fréquence de la boucle de contrôle --
-PUBLISH_HZ = 10.0
 
 class Automatic(SteadyNode):
     
@@ -63,12 +54,12 @@ class Automatic(SteadyNode):
         self.robot_y: float = 0.0
         self.robot_theta: float = 0.0
         
-        self.goal_x: float = GOAL_X
-        self.goal_y: float = GOAL_Y
+        self.goal_x: float = DEFAULT_GOAL_X
+        self.goal_y: float = DEFAULT_GOAL_Y
         self.goal_reached = False
         
         # Boucle de controle d'arrivée à destination (fréquence fixe)
-        self.create_timer(1.0 / PUBLISH_HZ, self.control_loop)
+        self.create_timer(1.0 / AUTO_LOOP_HZ, self.control_loop)
         
         self.get_logger().info(
             f"Noeud Automatic lancé - cible : ({self.goal_x:.2f},{self.goal_y:.2f})"
@@ -172,10 +163,10 @@ class Automatic(SteadyNode):
         # COrrection angulaire pour aligner l robot sur la direction de la force
         desired_heading = math.atan2(fy, fx)
         heading_error = angle_wrap(desired_heading - self.robot_theta)
-        w = 0.2 * heading_error # gain angulaire (pour pas que ça tourne trop vite pour l'algo de localization.py
+        w = APF_HEADING_GAIN * heading_error # gain angulaire (pour pas que ça tourne trop vite pour l'algo de localization.py
         
         # Réduction de la vitesse linéaire si l'erreur de cap est grande, pour éviter les zigzags
-        translation_factor = max(0.0, 1.0 - (abs(heading_error) / (math.pi / 4.0)))
+        translation_factor = max(0.0, 1.0 - (abs(heading_error) / APF_HEADING_TOLERANCE))
         vx *= translation_factor
         vy *= translation_factor
         
@@ -194,9 +185,9 @@ class Automatic(SteadyNode):
         """
         
         # Normalisation de la vitesse
-        vx_n = _clamp(vx / MAX_LINEAR_FORCE, -1.0, 1.0)
-        vy_n = _clamp(vy / MAX_LINEAR_FORCE, -1.0, 1.0)
-        w_n = _clamp(w / MAX_ANGULAR_FORCE, -1.0, 1.0)
+        vx_n = _clamp(vx / APF_MAX_LINEAR_FORCE, -1.0, 1.0)
+        vy_n = _clamp(vy / APF_MAX_LINEAR_FORCE, -1.0, 1.0)
+        w_n = _clamp(w / APF_MAX_ANGULAR_FORCE, -1.0, 1.0)
         
         # Modèle cinématique pour un robot à 4 roues toutes directions
         fl = vx_n - vy_n - w_n # avant-gauche

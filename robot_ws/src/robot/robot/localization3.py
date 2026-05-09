@@ -5,10 +5,12 @@ from geometry_msgs.msg import Pose2D
 import math, time
 import numpy as np
 import open3d as o3d
-
-WHEEL_RADIUS = 0.04
-LX = 0.15
-LY = 0.15
+from robot.robot_config import (WHEEL_RADIUS, LX, LY, LIDAR_MIN_DIST, LIDAR_MAX_RANGE_M,
+                                LOC_DIST_THRESHOLD, LOC_ANGLE_THRESHOLD, angle_wrap,
+                                ICP_MAX_CORRESPOND_DIST, ICP_MAX_JUMP_DIST,
+                                ICP_MAX_JUMP_ANGLE, ICP_VOXEL_SIZE,
+                                ICP_FITNESS_THRESHOLD, ICP_INLIER_RMSE_THRESHOLD, 
+                                ICP_MAP_UPDATE_FITNESS, ICP_MIN_POINTS, ENCODER_NOISE_THRESHOLD)
 
 class LocalizationNode(Node):
 
@@ -26,8 +28,8 @@ class LocalizationNode(Node):
         self.last_ref_theta = 0.0
         
         # Seuils pour déclencher une mise à jour de la carte
-        self.dist_threshold = 0.3 
-        self.angle_threshold = math.radians(15)
+        self.dist_threshold = LOC_DIST_THRESHOLD 
+        self.angle_threshold = LOC_ANGLE_THRESHOLD
 
         self.create_subscription(RPMs,  '/robot/encoders', self.encoders_callback, 1)
         self.create_subscription(Lidar, '/robot/lidar',    self.lidar_callback,    1)
@@ -44,7 +46,7 @@ class LocalizationNode(Node):
         w_rl = msg.back_left_rpm   * to_rad
         w_rr = msg.back_right_rpm  * to_rad
 
-        if max(abs(w_fl), abs(w_fr), abs(w_rl), abs(w_rr)) < 0.5:
+        if max(abs(w_fl), abs(w_fr), abs(w_rl), abs(w_rr)) < ENCODER_NOISE_THRESHOLD:
             return
 
         # Cinématique inverse
@@ -55,12 +57,12 @@ class LocalizationNode(Node):
         now = time.time()
         dt  = now - self.last_time
         self.last_time = now
-        dt  = max(1e-4, min(dt, 1.0))   # On s'est jamais, autant retardé, mais on protège quand même contre les gros sauts de temps
+        dt  = max(1e-4, min(dt, 1.0))   # On sait jamais, autant retarder, mais on protège quand même contre les gros sauts de temps
 
         cos_t, sin_t = math.cos(self.theta), math.sin(self.theta)
         self.x += (vx * cos_t - vy * sin_t) * dt
         self.y += (vx * sin_t + vy * cos_t) * dt
-        self.theta  = self._wrap(self.theta + wz * dt)
+        self.theta  = angle_wrap(self.theta + wz * dt)
         self._publish()
 
 
@@ -70,7 +72,7 @@ class LocalizationNode(Node):
         # Convertir le scan (angle, distance) en nuage de points dans le repère global
         # en utilisant l'estimation courante
         curr_pcd = self._scan_to_global_pcd(msg)
-        if len(curr_pcd.points) < 30:
+        if len(curr_pcd.points) < ICP_MIN_POINTS:
             return
 
         # Premier scan : on l'enregistre comme référence, pas de correction possible
@@ -87,7 +89,7 @@ class LocalizationNode(Node):
         result = o3d.pipelines.registration.registration_icp(
             source=curr_pcd,
             target=self.ref_pcd,
-            max_correspondence_distance=1.5,       # Max 150 cm d'écart accepté
+            max_correspondence_distance=ICP_MAX_CORRESPOND_DIST,       # Max d'écart accepté
             init=np.eye(4),
             estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
             #o3d.pipelines.registration.TransformationEstimationPointToPlane(),
@@ -100,7 +102,7 @@ class LocalizationNode(Node):
 
         # Vérification de la qualité du recalage
         # fitness = fraction de points matchés ; rmse = erreur résiduelle
-        if result.fitness < 0.7 or result.inlier_rmse > 0.15:
+        if result.fitness < ICP_FITNESS_THRESHOLD or result.inlier_rmse > ICP_INLIER_RMSE_THRESHOLD:
             self.get_logger().warn(
                 f"ICP peu fiable (fitness={result.fitness:.2f}, rmse={result.inlier_rmse:.3f}) — scan ignoré"
             )
@@ -126,7 +128,7 @@ class LocalizationNode(Node):
         corr   = T @ pos_h
         new_x     = float(corr[0])
         new_y     = float(corr[1])
-        new_theta = self._wrap(self.theta + math.atan2(T[1, 0], T[0, 0]))
+        new_theta = angle_wrap(self.theta + math.atan2(T[1, 0], T[0, 0]))
         #self.x     = float(corr[0])
         #self.y     = float(corr[1])
         #self.theta = self._wrap(self.theta + math.atan2(T[1, 0], T[0, 0]))
@@ -136,7 +138,7 @@ class LocalizationNode(Node):
 
         # Tolérance de 15 cm et ~20 degrés max d'un coup valeurs ad hoc 
         # à ajuster selon le bruit des encodeurs et la fréquence des scans
-        if jump_dist > 0.15 or jump_angle > 0.35:
+        if jump_dist > ICP_MAX_JUMP_DIST or jump_angle > ICP_MAX_JUMP_ANGLE:
             self.get_logger().warn(
                 f"Rejet ICP : Saut trop violent (dist={jump_dist:.2f}m, angle={math.degrees(jump_angle):.1f}°)"
             )
@@ -159,12 +161,12 @@ class LocalizationNode(Node):
         # Mise à jour de la carte
         dx = self.x - self.last_ref_x
         dy = self.y - self.last_ref_y
-        dtheta = abs(self._wrap(self.theta - self.last_ref_theta))
+        dtheta = abs(angle_wrap(self.theta - self.last_ref_theta))
         dist = math.hypot(dx, dy)
 
         # Si le robot a parcouru dist_threshold OU a tourné de angle_threshold 
         # depuis la dernière mise à jour, ET que l'ICP était de bonne qualité, on met à jour la carte
-        if (dist > self.dist_threshold or dtheta > self.angle_threshold) and result.fitness > 0.85:
+        if (dist > self.dist_threshold or dtheta > self.angle_threshold) and result.fitness > ICP_MAP_UPDATE_FITNESS:
             nouveau_scan = self._scan_to_global_pcd(msg)
             
             # On fusionne l'ancien nuage avec le nouveau
@@ -172,8 +174,8 @@ class LocalizationNode(Node):
             
             # On filtre le nuage fusionné.
             # Sans ça, le nuage devient gigantesque, l'ICP va ramer.
-            # Un "voxel" de 5 cm (0.05) garde un seul point par cube de 5x5x5 cm.
-            self.ref_pcd = self.ref_pcd.voxel_down_sample(voxel_size=0.05)
+            # Un "voxel" de taille B cm garde un seul point par cube de BxBxB cm.
+            self.ref_pcd = self.ref_pcd.voxel_down_sample(voxel_size=ICP_VOXEL_SIZE)
 
             # On mémorise la position de cette mise à jour
             self.last_ref_x = self.x
@@ -195,7 +197,7 @@ class LocalizationNode(Node):
         cos_t, sin_t = math.cos(self.theta), math.sin(self.theta)
         pts = []
         for a, d in zip(msg.angles, msg.distances):
-            if math.isfinite(d) and 0.05 < d < 5.95:
+            if math.isfinite(d) and LIDAR_MIN_DIST < d < (LIDAR_MAX_RANGE_M - 0.05):
                 lx = d * math.cos(a)
                 ly = d * math.sin(a)
                 pts.append([
@@ -213,9 +215,9 @@ class LocalizationNode(Node):
         out.x, out.y, out.theta = float(self.x), float(self.y), float(self.theta)
         self.pub_pos.publish(out)
 
-    @staticmethod
-    def _wrap(a: float) -> float:
-        return (a + math.pi) % (2 * math.pi) - math.pi
+    #@staticmethod
+    #def angle_wrap(a: float) -> float:
+        #return (a + math.pi) % (2 * math.pi) - math.pi
 
 
 def main():
