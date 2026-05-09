@@ -39,7 +39,7 @@ class Control(SteadyNode):
             if self.overriden_pwm != None:
                 return self.overriden_pwm
 
-            error = self.target_rpm - self.current_rpm
+            error = abs(self.target_rpm) - self.current_rpm
 
             self.accumulated_error += error * deltaTime
             if self.accumulated_error > self.max_accumulated_error:
@@ -53,6 +53,9 @@ class Control(SteadyNode):
 
             #pwm = int(self.basePWMFunction(self.target_rpm) + self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
             pwm = int(self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
+
+            if self.target_rpm < 0:
+                pwm *= -1
 
             if pwm > 255:
                 pwm = 255
