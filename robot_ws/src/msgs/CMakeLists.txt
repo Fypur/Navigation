@@ -26,7 +26,6 @@ endif()
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msgs/Health.msg"
   "msgs/Lidar.msg"
   "msgs/Detect.msg"
   "msgs/Command.msg"

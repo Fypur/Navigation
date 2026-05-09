@@ -15,14 +15,14 @@ class Control(SteadyNode):
         # PID pour une roue
         # Ce PID n'est là que pour compenser des petites erreurs, la formule finale pour calc la PMW est
         # PWM = int(basePWM + WheelControl.calcPWM())
-        def __init__(self, basePWMFunction: Callable[[float], float], logger) -> None:
-            self.kp = 0.3
-            self.ki = 0.1
-            self.kd = 0.0
+        def __init__(self, basePWMFunction: Callable[[float], float], kp: float, ki: float, kd: float, logger) -> None:
+            self.kp = kp
+            self.ki = ki
+            self.kd = kd
             self.accumulated_error = 0.0
             self.last_error = 0.0
-            self.max_accumulated_error = 10.0
-            self.min_accumulated_error = -10.0
+            self.max_accumulated_error = 1000.0
+            self.min_accumulated_error = -1000.0
             self.last_time = time()
             self.basePWMFunction = basePWMFunction
             self.target_rpm = 0.
@@ -51,7 +51,8 @@ class Control(SteadyNode):
             if deltaTime != 0:
                 derivative = (error - self.last_error) / deltaTime
 
-            pwm = int(self.basePWMFunction(self.target_rpm) + self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
+            #pwm = int(self.basePWMFunction(self.target_rpm) + self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
+            pwm = int(self.kp * error + self.ki * self.accumulated_error + self.kd * derivative)
 
             if pwm > 255:
                 pwm = 255
@@ -89,10 +90,10 @@ class Control(SteadyNode):
         }
 
         self.wheelControls = [
-            self.WheelControl(base_pwm(self.front_left_RPM), self.get_logger()),
-            self.WheelControl(base_pwm(self.front_right_RPM), self.get_logger()),
-            self.WheelControl(base_pwm(self.back_right_RPM), self.get_logger()),
-            self.WheelControl(base_pwm(self.back_left_RPM), self.get_logger()),
+            self.WheelControl(base_pwm(self.front_left_RPM), 0.765, 1.12,0, self.get_logger()),
+            self.WheelControl(base_pwm(self.front_right_RPM), 0.765, 1.02, 0, self.get_logger()),
+            self.WheelControl(base_pwm(self.back_right_RPM), 0.81,1.33,0, self.get_logger()),
+            self.WheelControl(base_pwm(self.back_left_RPM), 0.855, 1.24,0, self.get_logger()),
         ]
 
         self.get_logger().info("Control node launched")
@@ -143,7 +144,9 @@ class Control(SteadyNode):
         elif msg.param_id == "kd":
             wheel_control.kd = msg.new_value
         elif msg.param_id == "ki":
-            wheel_control.kp = msg.new_value
+            wheel_control.ki = msg.new_value
+
+        self.get_logger().info(f"Set {msg.param_id} of wheel {msg.wheel_id} to {msg.new_value}")
 
 
     def front_left_RPM(self, speed: int):
