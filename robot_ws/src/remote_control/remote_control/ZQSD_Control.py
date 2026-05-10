@@ -3,11 +3,17 @@ from rclpy.node import Node
 from msgs.msg import RPMs, WheelSpeeds
 from rclpy.clock import Clock, ClockType
 import pygame
+from enum import IntEnum
 
 DEFAULT_RPM = 167.0
 DEFAULT_PWM = 240
 
 class ZQSD_Control(Node):
+
+    class WheelDir(IntEnum):
+        BACK = -1
+        STOP = 0
+        FORWARD = 1
 
     def __init__(self):
         super().__init__("ZQSD_control")
@@ -23,6 +29,29 @@ class ZQSD_Control(Node):
 
         self.get_logger().info("Remote control ZQSD node launched")
 
+    def send_pwm(self, front_left: int, front_right: int, back_right: int, back_left: int)
+        msg = WheelSpeeds()
+        msg.front_left_wheel_speed = front_left
+        msg.front_right_wheel_speed = front_right
+        msg.back_right_wheel_speed = back_right
+        msg.back_left_wheel_speed = back_left
+        self.pub_pwm.publish(msg)
+
+    def send_rpm(self, front_left: float, front_right: float, back_right: float, back_left: float)
+        msg = RPMs()
+        msg.front_left_rpm = front_left
+        msg.front_right_rpm = front_right
+        msg.back_right_rpm = back_right
+        msg.back_left_rpm = back_left
+        self.pub_cmd.publish(msg)
+
+    def set_wheel_dirs(self, is_rpm: bool, front_left: WheelDir, front_right: WheelDir, back_right: WheelDir, back_left: WheelDir):
+        if is_rpm:
+            self.send_rpm(front_left, front_right, back_right, back_left)
+        else:
+            self.send_pwm(front_left, front_right, back_right, back_left)
+
+
     def check_input(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -32,6 +61,7 @@ class ZQSD_Control(Node):
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_z]:
+            self.set_wheel_dirs(True, )
             m.front_left_rpm = DEFAULT_RPM
             m.front_right_rpm = DEFAULT_RPM
             m.back_right_rpm = DEFAULT_RPM
