@@ -103,7 +103,10 @@ class Encoders(SteadyNode):
             pulse_count = len(self.positive_encoder_pulse_timestamps) - len(self.negative_encoder_pulse_timestamps)
             self.rpm = 60 * pulse_count / (self.sliding_average_window * PULSES_PER_REV)
 
-            return self.rpm
+            if not self.reversed_motor:
+                return self.rpm
+            else:
+                return -self.rpm
 
         def cancel(self):
             self.callback_a.cancel()
