@@ -31,12 +31,11 @@ ICP_MIN_POINTS            = 30                # Nombre minimum de points requis 
 
 
 # -- Paramètres généraux du robot --
-WHEEL_RADIUS = 0.04  # Rayon des roues en mètres (4 cm)
+WHEEL_RADIUS = 0.0325  # Rayon des roues en mètres (3.25 cm)
 ROBOT_RADIUS = 0.15  # Rayon approximatif du robot pour l'APF (m)
 LX           = 0.15  # Distance centre -> axe avant/arrière (m)
 LY           = 0.15  # Distance centre -> axe gauche/droite (m)
 GEAR_RATIO   = 1.0   # Rapport de réduction (1.0 = RPM moteur == RPM roue)
-ROBOT_SIZE   = 0.80  # Taille du robot pour la détection de collision (m)
 
 
 # -- Paramètres des actionneurs --
