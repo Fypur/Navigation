@@ -9,10 +9,12 @@ from msgs.msg import RPMs
 import collections
 
 try:
-    import RPi.GPIO as GPIO  #pip install RPi.GPIO
-except RuntimeError:
-    rclpy.logging.get_logger("encoders").error("Couldn't import RPi.GPIO, make sure you're running this node on a raspberry pi. This node will now shutdown.")
+    import pigpio
+except ImportError:
+    rclpy.logging.get_logger("encoders").error(
+        "Couldn't import pigpio. Run: pip install pigpio and make sure pigpiod is running (sudo pigpiod).")
     exit()
+
 
 class PinMap(IntEnum):
     ENCODER_FRONT_LEFT_A = 17
@@ -24,80 +26,110 @@ class PinMap(IntEnum):
     ENCODER_BACK_LEFT_A = 2
     ENCODER_BACK_LEFT_B = 3
 
+
+# With pigpio we trigger on both edges of A (instead of one edge of B),
+# giving 2x the pulses. Adjust this if your RPMs look doubled.
+PULSES_PER_REV = 234.3 * 2
+
+
 class Encoders(SteadyNode):
 
     class EncoderSignalPin:
 
-        def __init__(self, a_pin: int, b_pin: int, reversed: bool, logger) -> None:
-            # pin setup
+        def __init__(self, pi: pigpio.pi, a_pin: int, b_pin: int, reversed: bool, logger) -> None:
+            self.pi = pi
             self.a_pin = a_pin
             self.b_pin = b_pin
             self.reversed_motor = reversed
-            self.sliding_average_window = 0.3 #we do a sliding average over 0.3s in order to keep the readings stable
-            GPIO.setup(self.a_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            GPIO.setup(self.b_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
+            self.sliding_average_window = 0.3
             self.logger = logger
-            logger.info(f"Pin setup for pins a {self.a_pin} and b {self.b_pin}")
-            # the following line triggers self.encoder_pulse() when the bpin goes from HIGH to LOW,
-            # so when the wheel spun by a certain amount
-            GPIO.add_event_detect(self.b_pin,
-                                  GPIO.FALLING,
-                                  callback=(lambda channel: self.encoder_pulse()))
 
-            self.positive_encoder_pulse_timestamps = collections.deque()  # modified when the encoder pulses, so when the wheel spins by a certain amount
+            self.positive_encoder_pulse_timestamps = collections.deque()
             self.negative_encoder_pulse_timestamps = collections.deque()
-            self.rpm = 0.
+            self.rpm = 0.0
 
-        def encoder_pulse(self):
-            # self.logger.debug(f"pin {self.b_pin} encoder pulse")
+            pi.set_mode(a_pin, pigpio.INPUT)
+            pi.set_mode(b_pin, pigpio.INPUT)
+            pi.set_pull_up_down(a_pin, pigpio.PUD_UP)
+            pi.set_pull_up_down(b_pin, pigpio.PUD_UP)
 
-            #if GPIO.input(self.a_pin) == GPIO.LOW:
-            self.positive_encoder_pulse_timestamps.append(time.time())
-            #else:
-            #    self.negative_encoder_pulse_timestamps.append(time.time())
+            # Seed B's level before attaching callbacks
+            self.b_level = pi.read(b_pin)
+
+            # B callback just keeps _b_level current.
+            # Since we fire on every edge, _b_level is always accurate by the
+            # time _on_a fires — no need to read the pin live.
+            self.callback_b = pi.callback(b_pin, pigpio.EITHER_EDGE, self._on_b)
+            self.callback_a = pi.callback(a_pin, pigpio.EITHER_EDGE, self._on_a)
+
+            logger.info(f"Pin setup for pins a={a_pin} b={b_pin}")
+
+        def _on_b(self, gpio, level, tick):
+            self.b_level = level
+
+        def _on_a(self, gpio, level, tick):
+            # Determine direction from the quadrature state transition.
+            # _b_level is always current: if B changed, _on_b already fired.
+            #   A rising  + B low  → forward
+            #   A rising  + B high → backward
+            #   A falling + B high → forward
+            #   A falling + B low  → backward
+            if level == 1:
+                forward = self.b_level == 0
+            else:
+                forward = self.b_level == 1
+
+            t = time.time()
+            if forward:
+                self.positive_encoder_pulse_timestamps.append(t)
+            else:
+                self.negative_encoder_pulse_timestamps.append(t)
 
         def update_rpm(self):
             """
-                Updates the RPM of the wheel associated with this encoder and returns it.
-                The RPM is positive when spinning forwards, and negative when spinning backwards
+            Updates the RPM of the wheel associated with this encoder and returns it.
+            The RPM is positive when spinning forwards, and negative when spinning backwards.
             """
-
-            currentTime = time.time()
+            current_time = time.time()
 
             def remove_old_timestamps(encoder_pulse_timestamps: collections.deque):
-                while len(encoder_pulse_timestamps) > 0:
-                    if currentTime - encoder_pulse_timestamps[0] > self.sliding_average_window:
-                        encoder_pulse_timestamps.popleft()
-                    else:
-                        break
+                while encoder_pulse_timestamps and \
+                      current_time - encoder_pulse_timestamps[0] > self.sliding_average_window:
+                    encoder_pulse_timestamps.popleft()
 
             remove_old_timestamps(self.positive_encoder_pulse_timestamps)
             remove_old_timestamps(self.negative_encoder_pulse_timestamps)
 
-            encoder_pulse_count = len(self.positive_encoder_pulse_timestamps) - len(self.negative_encoder_pulse_timestamps)
-            self.rpm = 60 * encoder_pulse_count / (self.sliding_average_window * 234.3)
-            #self.rpm = -abs(self.rpm) if self.reversed_motor else self.rpm
+            pulse_count = len(self.positive_encoder_pulse_timestamps) - len(self.negative_encoder_pulse_timestamps)
+            self.rpm = 60 * pulse_count / (self.sliding_average_window * PULSES_PER_REV)
 
-            return self.rpm
+            if not self.reversed_motor:
+                return self.rpm
+            else:
+                return -self.rpm
 
+        def cancel(self):
+            self.callback_a.cancel()
+            self.callback_b.cancel()
 
     def __init__(self):
         super().__init__("encoders")
 
-        GPIO.setmode(GPIO.BCM)
+        self.pi = pigpio.pi()
+        if not self.pi.connected:
+            self.get_logger().error("Could not connect to pigpiod — is it running? (sudo pigpiod)")
+            exit()
+
         logger = self.get_logger()
         self.encoderSignalPins = [
-            self.EncoderSignalPin(PinMap.ENCODER_FRONT_LEFT_A, PinMap.ENCODER_FRONT_LEFT_B, False, logger),
-            self.EncoderSignalPin(PinMap.ENCODER_FRONT_RIGHT_A, PinMap.ENCODER_FRONT_RIGHT_B, True, logger),
-            self.EncoderSignalPin(PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, False, logger),
-            self.EncoderSignalPin(PinMap.ENCODER_BACK_LEFT_A, PinMap.ENCODER_BACK_LEFT_B, False, logger),
+            self.EncoderSignalPin(self.pi, PinMap.ENCODER_FRONT_LEFT_A, PinMap.ENCODER_FRONT_LEFT_B, False, logger),
+            self.EncoderSignalPin(self.pi, PinMap.ENCODER_FRONT_RIGHT_A, PinMap.ENCODER_FRONT_RIGHT_B, True, logger),
+            self.EncoderSignalPin(self.pi, PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, True, logger),
+            self.EncoderSignalPin(self.pi, PinMap.ENCODER_BACK_LEFT_A, PinMap.ENCODER_BACK_LEFT_B, False, logger),
         ]
 
         self.pub = self.create_publisher(RPMs, "/robot/encoders", 10)
-
         self.create_timer(0.1, self.send_RPMs)
-
         self.get_logger().info("Encoders node launched")
 
     def send_RPMs(self):
@@ -107,18 +139,23 @@ class Encoders(SteadyNode):
         msg.back_right_rpm = self.encoderSignalPins[2].update_rpm()
         msg.back_left_rpm = self.encoderSignalPins[3].update_rpm()
 
-        self.get_logger().debug(f"measured RPMS: {msg.front_left_rpm}, {msg.front_right_rpm}, {msg.back_right_rpm}, {msg.back_left_rpm}")
-
+        self.get_logger().debug(
+            f"measured RPMs: {msg.front_left_rpm:.1f}, {msg.front_right_rpm:.1f}, {msg.back_right_rpm:.1f}, {msg.back_left_rpm:.1f}"
+        )
         self.pub.publish(msg)
 
-
+    def destroy_node(self):
+        for enc in self.encoderSignalPins:
+            enc.cancel()
+        self.pi.stop()
+        super().destroy_node()
 
 
 def main():
     rclpy.init()
-    GPIO.cleanup()
+    node = Encoders()
     try:
-        rclpy.spin(Encoders())
+        rclpy.spin(node)
     finally:
-        GPIO.cleanup()
+        node.destroy_node()
     rclpy.shutdown()

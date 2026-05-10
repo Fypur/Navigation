@@ -149,7 +149,7 @@ class LocalizationNode(Node):
         self.theta = new_theta
         self._publish()
         
-        self.get_logger().info(
+        self.get_logger().debug(
             f"ICP OK  fitness={result.fitness:.2f}  "
             f"x={self.x:.3f}  y={self.y:.3f}  θ={math.degrees(self.theta):.1f}°"
         )
