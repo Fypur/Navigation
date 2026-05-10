@@ -124,7 +124,7 @@ class Encoders(SteadyNode):
         self.encoderSignalPins = [
             self.EncoderSignalPin(self.pi, PinMap.ENCODER_FRONT_LEFT_A, PinMap.ENCODER_FRONT_LEFT_B, False, logger),
             self.EncoderSignalPin(self.pi, PinMap.ENCODER_FRONT_RIGHT_A, PinMap.ENCODER_FRONT_RIGHT_B, True, logger),
-            self.EncoderSignalPin(self.pi, PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, False, logger),
+            self.EncoderSignalPin(self.pi, PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, True, logger),
             self.EncoderSignalPin(self.pi, PinMap.ENCODER_BACK_LEFT_A, PinMap.ENCODER_BACK_LEFT_B, False, logger),
         ]
 
