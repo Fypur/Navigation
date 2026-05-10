@@ -128,13 +128,13 @@ class Console(SteadyNode):
             msg.data = False
             self.pub_enable_auto.publish(msg)
 
-            m = WheelSpeeds()
-            m.front_left_wheel_speed = 0
-            m.front_right_wheel_speed = 0
-            m.back_right_wheel_speed = 0
-            m.back_left_wheel_speed = 0
+            m = RPMs()
+            m.front_left_rpm = 0
+            m.front_right_rpm = 0
+            m.back_right_rpm = 0
+            m.back_left_rpm = 0
 
-            self.pub_raw_cmd.publish(m)
+            self.pub_cmd.publish(m)
 
         elif command_name.startswith("set"):
             if len(split_cmd) != 2 and len(split_cmd) != 3:

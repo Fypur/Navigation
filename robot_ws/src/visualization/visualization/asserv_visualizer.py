@@ -34,7 +34,7 @@ class AsservVisualizer(SteadyNode):
 
             dpg.set_value(self.line_series, [self.data_x, self.data_y])
 
-            dpg.set_axis_limits(self.y_axis, 0, self.height)
+            dpg.set_axis_limits(self.y_axis, -self.height, self.height)
             dpg.fit_axis_data(self.x_axis)
 
         def set_command(self, rpm_cmd):
@@ -75,16 +75,16 @@ class AsservVisualizer(SteadyNode):
         self.get_logger().info(
             f"received measured RPMS: {msg.front_left_rpm}, {msg.front_right_rpm}, {msg.back_right_rpm}, {msg.back_left_rpm}")
 
-        self.wheelPlots[0].add_data(abs(msg.front_left_rpm))
-        self.wheelPlots[2].add_data(abs(msg.front_right_rpm))
-        self.wheelPlots[4].add_data(abs(msg.back_right_rpm))
-        self.wheelPlots[6].add_data(abs(msg.back_left_rpm))
+        self.wheelPlots[0].add_data(msg.front_left_rpm)
+        self.wheelPlots[2].add_data(msg.front_right_rpm)
+        self.wheelPlots[4].add_data(msg.back_right_rpm)
+        self.wheelPlots[6].add_data(msg.back_left_rpm)
 
     def cmd_callback(self, msg: RPMs):
-        self.wheelPlots[0].set_command(abs(msg.front_left_rpm))
-        self.wheelPlots[2].set_command(abs(msg.front_right_rpm))
-        self.wheelPlots[4].set_command(abs(msg.back_right_rpm))
-        self.wheelPlots[6].set_command(abs(msg.back_left_rpm))
+        self.wheelPlots[0].set_command(msg.front_left_rpm)
+        self.wheelPlots[2].set_command(msg.front_right_rpm)
+        self.wheelPlots[4].set_command(msg.back_right_rpm)
+        self.wheelPlots[6].set_command(msg.back_left_rpm)
 
     def wheel_speeds_callback(self, msg: WheelSpeeds):
         self.wheelPlots[1].add_data(abs(msg.front_left_wheel_speed))
