@@ -17,9 +17,12 @@ class LocalizationNode(Node):
     def __init__(self):
         super().__init__('localization')
 
-        self.x     = 0.0
-        self.y     = 0.0
-        self.theta = 0.0
+        # Position fusionnée (publiée)
+        self.x, self.y, self.z = 0.0, 0.0, 0.0
+        
+        # Position odométrique brute (pour debug / monitorer la dérive)
+        self.odom_x, self.odom_y, self.odom_z = 0.0, 0.0, 0.0
+        
         self.last_time = time.time()
         self.ref_pcd   = None          # Dernier scan de référence (frame globale)
         
@@ -55,22 +58,46 @@ class LocalizationNode(Node):
         wz = (WHEEL_RADIUS / (4.0 * (LX + LY))) * (-w_fl + w_fr - w_rl + w_rr)
 
         now = time.time()
-        dt  = now - self.last_time
+        #dt  = now - self.last_time
+        #self.last_time = now
+        dt = max(1e-4, min(now - self.last_time, 1.0))
         self.last_time = now
-        dt  = max(1e-4, min(dt, 1.0))   # On sait jamais, autant retarder, mais on protège quand même contre les gros sauts de temps
-
-        cos_t, sin_t = math.cos(self.theta), math.sin(self.theta)
+        
+        # Incrément dans le repère du robot
+        # On calcule delta une seule fois et on l'applique aux DEUX positions
+        # L'odométrie et la position fusionnée partagent le même mouvement relatif
+        # seule leur origine absolue diffère (l'ICP corrige la fusionnée)
+        
+        '''cos_t, sin_t = math.cos(self.theta), math.sin(self.theta)
         self.x += (vx * cos_t - vy * sin_t) * dt
         self.y += (vx * sin_t + vy * cos_t) * dt
         self.theta  = angle_wrap(self.theta + wz * dt)
-        self._publish()
+        self._publish()'''
+        
+        def apply_increment(x, y, theta):
+            cos_t, sin_t = math.cos(theta), math.sin(theta)
+            new_x = x + (vx * cos_t - vy * sin_t) * dt
+            new_y = y + (vx * sin_t + vy * cos_t) * dt
+            new_theta = angle_wrap(theta + wz * dt)
+            return new_x, new_y, new_theta
 
+        # Position odométrique brute (intégration pure, sans correction ICP)
+        self.odom_x, self.odom_y, self.odom_theta = apply_increment(
+            self.odom_x, self.odom_y, self.odom_theta
+        )
+        
+        # Position fusionnée : on applique le même déplacement relatif
+        # (l'ICP ne touche que self.x/y/theta, jamais odom_*)
+        self.x, self.y, self.theta = apply_increment(
+            self.x, self.y, self.theta
+        )
+        
+        self._publish()
 
     #  LIDAR  –  correction via open3d
     
     def lidar_callback(self, msg: Lidar):
-        # Convertir le scan (angle, distance) en nuage de points dans le repère global
-        # en utilisant l'estimation courante
+        # On utilise la pose FUSIONNÉE pour projeter le scan en coordonnées globales
         curr_pcd = self._scan_to_global_pcd(msg)
         if len(curr_pcd.points) < ICP_MIN_POINTS:
             return
@@ -144,6 +171,9 @@ class LocalizationNode(Node):
             )
             return
         
+        # Correction appliquée UNIQUEMENT sur la position fusionnée
+        # self.odom_* n'est JAMAIS touché par l'ICP
+        # On peut donc à tout moment calculer la dérive
         self.x = new_x
         self.y = new_y
         self.theta = new_theta
@@ -151,7 +181,8 @@ class LocalizationNode(Node):
         
         self.get_logger().debug(
             f"ICP OK  fitness={result.fitness:.2f}  "
-            f"x={self.x:.3f}  y={self.y:.3f}  θ={math.degrees(self.theta):.1f}°"
+            f"fused=({self.x:.3f}, {self.y:.3f}, {math.degrees(self.theta):.1f}°)  "
+            f"drift=({self.x - self.odom_x:.3f}, {self.y - self.odom_y:.3f})"
         )
 
         # Mettre à jour le scan de référence avec la pose corrigée
@@ -199,7 +230,7 @@ class LocalizationNode(Node):
         for a, d in zip(msg.angles, msg.distances):
             if math.isfinite(d) and LIDAR_MIN_DIST < d < (LIDAR_MAX_RANGE_M - 0.05):
                 lx = d * math.cos(a)
-                ly = d * math.sin(a)
+                ly = - d * math.sin(a)
                 pts.append([
                     self.x + lx * cos_t - ly * sin_t,
                     self.y + lx * sin_t + ly * cos_t,

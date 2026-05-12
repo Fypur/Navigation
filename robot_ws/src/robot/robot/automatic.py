@@ -230,8 +230,8 @@ class Automatic(SteadyNode):
         
     # -- Public -- 
     def set_goal(self, x: float, y: float):
-        self.goal_x = y #x
-        self.goal_y = -x #y
+        self.goal_x = x
+        self.goal_y = y
         self.goal_reached = False
         self.get_logger().info(f"Nouvelle cible : ({x:.2f},{y:.2f})")
         
