@@ -18,10 +18,10 @@ class LocalizationNode(Node):
         super().__init__('localization')
 
         # Position fusionnée (publiée)
-        self.x, self.y, self.z = 0.0, 0.0, 0.0
+        self.x, self.y, self.theta = 0.0, 0.0, 0.0
         
         # Position odométrique brute (pour debug / monitorer la dérive)
-        self.odom_x, self.odom_y, self.odom_z = 0.0, 0.0, 0.0
+        self.odom_x, self.odom_y, self.odom_theta = 0.0, 0.0, 0.0
         
         self.last_time = time.time()
         self.ref_pcd   = None          # Dernier scan de référence (frame globale)
