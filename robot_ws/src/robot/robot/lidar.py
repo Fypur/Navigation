@@ -64,7 +64,7 @@ class LidarNode(Node):
         angles_obs = []
         dists_obs = []
         
-        angle = scan.angle_min
+        angle = 0.0
         
         for r in scan.ranges:
             # On filtre les valeurs invalides

@@ -155,7 +155,7 @@ class LocalizationNode(Node):
         corr   = T @ pos_h
         new_x     = float(corr[0])
         new_y     = float(corr[1])
-        new_theta = angle_wrap(self.theta - math.atan2(T[1, 0], T[0, 0]))
+        new_theta = angle_wrap(self.theta + math.atan2(T[1, 0], T[0, 0]))
         #self.x     = float(corr[0])
         #self.y     = float(corr[1])
         #self.theta = self._wrap(self.theta + math.atan2(T[1, 0], T[0, 0]))
@@ -230,7 +230,7 @@ class LocalizationNode(Node):
         for a, d in zip(msg.angles, msg.distances):
             if math.isfinite(d) and LIDAR_MIN_DIST < d < (LIDAR_MAX_RANGE_M - 0.05):
                 lx = d * math.cos(a)
-                ly = - d * math.sin(a)
+                ly = d * math.sin(a)
                 pts.append([
                     self.x + lx * cos_t - ly * sin_t,
                     self.y + lx * sin_t + ly * cos_t,
