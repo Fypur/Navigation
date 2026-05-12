@@ -155,7 +155,7 @@ class LocalizationNode(Node):
         corr   = T @ pos_h
         new_x     = float(corr[0])
         new_y     = float(corr[1])
-        new_theta = angle_wrap(self.theta + math.atan2(T[1, 0], T[0, 0]))
+        new_theta = angle_wrap(self.theta - math.atan2(T[1, 0], T[0, 0]))
         #self.x     = float(corr[0])
         #self.y     = float(corr[1])
         #self.theta = self._wrap(self.theta + math.atan2(T[1, 0], T[0, 0]))
