@@ -152,7 +152,7 @@ class LocalizationNode(Node):
         # Appliquer la correction T à la pose du robot
         # T * [x, y, 0, 1]^T  :  position corrigée
         pos_h  = np.array([self.x, self.y, 0.0, 1.0])
-        corr   = -T @ pos_h
+        corr   = T @ pos_h
         new_x     = float(corr[0])
         new_y     = float(corr[1])
         new_theta = angle_wrap(self.theta - math.atan2(T[1, 0], T[0, 0]))
