@@ -11,8 +11,8 @@ DWA_W_SAMPLES       = 7       # nombre d'échantillons sur wz
 DWA_SIM_TIME        = 1.5     # s     durée de simulation d'une trajectoire
 DWA_SIM_STEPS       = 15      # int   pas de simulation
 
-DWA_ROBOT_RADIUS    = 0.15    # m     rayon du robot (clearance)
-DWA_OBSTACLE_MARGIN = 0.10    # m     marge de sécurité supplémentaire
+DWA_ROBOT_RADIUS    = 0.30    # m     rayon du robot (clearance)
+DWA_OBSTACLE_MARGIN = 0.20    # m     marge de sécurité supplémentaire
 DWA_LETHAL_DIST     = 0.10    # m     distance en dessous de laquelle on bloque
 
 DWA_W_HEADING       = 0.5     # poids cap vers le but
