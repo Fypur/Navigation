@@ -184,16 +184,25 @@ class Automatic(SteadyNode):
         
     def lidar_callback(self, msg: Lidar):
         """
-        Stocke les points obstacles dans le repère ROBOT avec horodatage.
-        La mémoire temporelle permet de conserver les obstacles récents
-        qui ne sont plus dans le champ de vue courant (angles morts, latence).
+        Stocke les points obstacles en repère MONDE avec horodatage.
+
+        Repère monde = indispensable pour la mémoire temporelle : si on stockait
+        en repère robot, les vieux points deviendraient faux dès que le robot
+        tourne ou avance, ce qui ferait croire à DWA qu'il est cerné d'obstacles
+        fantômes et le ferait tourner frénétiquement.
         """
         now = time.monotonic()
         self._lidar_last_stamp = now
 
-        # Nouveaux points du scan courant
+        # Snapshot de la pose courante pour la projection monde
+        rx, ry, rt = self.robot_x, self.robot_y, self.robot_theta
+        cos_t, sin_t = math.cos(rt), math.sin(rt)
+
+        # Projection repère robot → repère monde
         new_pts = [
-            (d * math.cos(a), d * math.sin(a), now)
+            (rx + d * (math.cos(a) * cos_t - math.sin(a) * sin_t),
+             ry + d * (math.cos(a) * sin_t + math.sin(a) * cos_t),
+             now)
             for a, d in zip(msg.angles, msg.distances)
             if math.isfinite(d) and d > LIDAR_MIN_DIST
         ]
@@ -201,10 +210,6 @@ class Automatic(SteadyNode):
         # Expiration des anciens points
         cutoff = now - OBSTACLE_MEMORY_SEC
         self._obs_memory = [p for p in self._obs_memory if p[2] > cutoff]
-
-        # Fusion : on ajoute les nouveaux points.
-        # On pourrait dédupliquer mais c'est coûteux ; le ::2 ci-dessous
-        # suffit à garder une densité raisonnable.
         self._obs_memory.extend(new_pts)
     
     def pos_callback(self, msg: Pose2D):
@@ -224,24 +229,16 @@ class Automatic(SteadyNode):
             return
 
         # ------------------------------------------------------------------ #
-        # État RECOVERY : on exécute la manœuvre avec bruit continu
+        # État RECOVERY : on tient la commande fixe calculée au démarrage
+        # (pas de re-tirage à chaque cycle — ce serait la cause des rotations
+        # frénétiques observées)
         # ------------------------------------------------------------------ #
         if self._state == "recovery":
             elapsed = time.monotonic() - self._recovery_start
             if elapsed < self._rec_duration:
-                # Bruit gaussien re-tiré à chaque cycle pour un mouvement
-                # organique — le robot "tâtonne" plutôt que de tracer
-                # une trajectoire rigide.
-                vx_noisy = self._rec_vx_base + random.gauss(0.0, self._rec_vx_sigma)
-                wz_noisy = (self._rec_wz_sign * self._rec_wz_max
-                            + random.gauss(0.0, self._rec_wz_sigma))
-                wz_noisy = _clamp(wz_noisy,
-                                  -RECOVERY_STAGES[-1]["wz_max"],
-                                   RECOVERY_STAGES[-1]["wz_max"])
-                self._publish_command(vx_noisy, 0.0, wz_noisy)
+                self._publish_command(self._recovery_vx, 0.0, self._recovery_wz)
                 return
             else:
-                # Fin du palier → retour à la navigation normale
                 self._state = "navigate"
                 self._stuck_count = 0
                 self.get_logger().info(
@@ -386,6 +383,18 @@ class Automatic(SteadyNode):
         self._rec_wz_sign = -math.copysign(1.0, escape_angle) if abs(escape_angle) > 0.1 \
                              else random.choice([-1.0, 1.0])
 
+        # Commande fixe pour toute la durée du palier.
+        # Le bruit est tiré UNE SEULE FOIS ici — pas à chaque cycle de contrôle.
+        # Un bruit par cycle produirait des à-coups à 10-20 Hz, perçus comme
+        # une rotation frénétique sur le robot réel.
+        wz_noise = random.gauss(0.0, stage["wz_sigma"])
+        vx_noise = random.gauss(0.0, stage["vx_sigma"])
+        self._recovery_vx = _clamp(stage["vx_base"] + vx_noise, -DWA_MAX_VX, DWA_MAX_VX)
+        self._recovery_wz = _clamp(
+            self._rec_wz_sign * stage["wz_max"] + wz_noise,
+            -DWA_MAX_WZ, DWA_MAX_WZ
+        )
+
         self._state = "recovery"
         self._recovery_start = time.monotonic()
         self._stuck_count = 0
@@ -404,23 +413,29 @@ class Automatic(SteadyNode):
 
     def _get_obstacle_array(self) -> np.ndarray:
         """
-        Retourne un tableau (N, 2) des positions d'obstacles (repère robot)
-        en fusionnant le scan courant et la mémoire temporelle.
-        
-        On prend un point sur deux pour éviter une explosion du coût de
-        _simulate_trajectory, mais SANS sauter les points proches (on applique
-        le sous-échantillonnage uniquement aux points éloignés).
+        Retourne un tableau (N, 2) en repère ROBOT, calculé à la volée depuis
+        les positions monde mémorisées.  Ainsi, même les vieux points restent
+        géométriquement cohérents quelle que soit la rotation/translation du robot.
         """
         if not self._obs_memory:
             return np.empty((0, 2), dtype=np.float64)
 
-        pts = np.array([(x, y) for x, y, _ in self._obs_memory], dtype=np.float64)
+        # Transformation monde → robot pour la pose courante
+        rx, ry, rt = self.robot_x, self.robot_y, self.robot_theta
+        cos_t, sin_t = math.cos(rt), math.sin(rt)
 
-        # Séparer les points proches (< 2×rayon de sécurité) des points lointains
+        pts = np.array(
+            [(( wx - rx) * cos_t + (wy - ry) * sin_t,
+              -(wx - rx) * sin_t + (wy - ry) * cos_t)
+             for wx, wy, _ in self._obs_memory],
+            dtype=np.float64
+        )
+
+        # Sous-échantillonnage : tous les points proches, 1 sur 2 pour les lointains
         dists = np.hypot(pts[:, 0], pts[:, 1])
         close_mask = dists < (DWA_ROBOT_RADIUS + DWA_OBSTACLE_MARGIN) * 2.0
         close_pts  = pts[close_mask]
-        far_pts    = pts[~close_mask][::2]  # sous-éch. ×2 seulement pour les lointains
+        far_pts    = pts[~close_mask][::2]
 
         return np.vstack([close_pts, far_pts]) if (close_pts.shape[0] + far_pts.shape[0]) > 0 \
                else np.empty((0, 2), dtype=np.float64)
