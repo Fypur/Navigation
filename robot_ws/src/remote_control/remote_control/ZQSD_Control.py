@@ -5,6 +5,7 @@ from rclpy.clock import Clock, ClockType
 import pygame
 from enum import IntEnum
 
+USE_RPM = True
 DEFAULT_RPM = 167.0
 DEFAULT_PWM = 240
 
@@ -21,7 +22,7 @@ class ZQSD_Control(Node):
 
         self.pub_cmd = self.create_publisher(RPMs, "/robot/command", 10)
         self.pub_pwm = self.create_publisher(WheelSpeeds, "/robot/raw_command", 10)
-        self.create_timer(0.1, self.check_input_pwm)
+        self.create_timer(0.1, lambda: self.check_input(USE_RPM))
 
         pygame.init()
         self.window = pygame.display.set_mode((300, 300))
@@ -29,7 +30,7 @@ class ZQSD_Control(Node):
 
         self.get_logger().info("Remote control ZQSD node launched")
 
-    def send_pwm(self, front_left: int, front_right: int, back_right: int, back_left: int)
+    def send_pwm(self, front_left: int, front_right: int, back_right: int, back_left: int):
         msg = WheelSpeeds()
         msg.front_left_wheel_speed = front_left
         msg.front_right_wheel_speed = front_right
@@ -37,7 +38,7 @@ class ZQSD_Control(Node):
         msg.back_left_wheel_speed = back_left
         self.pub_pwm.publish(msg)
 
-    def send_rpm(self, front_left: float, front_right: float, back_right: float, back_left: float)
+    def send_rpm(self, front_left: float, front_right: float, back_right: float, back_left: float):
         msg = RPMs()
         msg.front_left_rpm = front_left
         msg.front_right_rpm = front_right
@@ -46,109 +47,48 @@ class ZQSD_Control(Node):
         self.pub_cmd.publish(msg)
 
     def set_wheel_dirs(self, is_rpm: bool, front_left: WheelDir, front_right: WheelDir, back_right: WheelDir, back_left: WheelDir):
+        def transform_wheel_dir(wheel_dir, power: float | int):
+            if wheel_dir == self.WheelDir.BACK:
+                return -power
+            if wheel_dir == self.WheelDir.FORWARD:
+                return power
+            return 0.0
+
+        def to_rpm(wheel_dir):
+            return transform_wheel_dir(wheel_dir, DEFAULT_RPM)
+        def to_pwm(wheel_dir):
+            return int(transform_wheel_dir(wheel_dir, DEFAULT_PWM))
+
         if is_rpm:
-            self.send_rpm(front_left, front_right, back_right, back_left)
+            self.send_rpm(to_rpm(front_left), to_rpm(front_right), to_rpm(back_right), to_rpm(back_left))
         else:
-            self.send_pwm(front_left, front_right, back_right, back_left)
+            self.send_pwm(to_pwm(front_left), to_pwm(front_right), to_pwm(back_right), to_pwm(back_left))
 
 
-    def check_input(self):
+    def check_input(self, in_rpm: bool):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 raise KeyboardInterrupt
-
-        m = RPMs()
-
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_z]:
-            self.set_wheel_dirs(True, )
-            m.front_left_rpm = DEFAULT_RPM
-            m.front_right_rpm = DEFAULT_RPM
-            m.back_right_rpm = DEFAULT_RPM
-            m.back_left_rpm = DEFAULT_RPM
-        elif keys[pygame.K_s]:
-            m.front_left_rpm = -DEFAULT_RPM
-            m.front_right_rpm = -DEFAULT_RPM
-            m.back_right_rpm = -DEFAULT_RPM
-            m.back_left_rpm = -DEFAULT_RPM
-        elif keys[pygame.K_q]:
-            m.front_left_rpm = -DEFAULT_RPM
-            m.front_right_rpm = DEFAULT_RPM
-            m.back_right_rpm = -DEFAULT_RPM
-            m.back_left_rpm = DEFAULT_RPM
-        elif keys[pygame.K_d]:
-            m.front_left_rpm = DEFAULT_RPM
-            m.front_right_rpm = -DEFAULT_RPM
-            m.back_right_rpm = DEFAULT_RPM
-            m.back_left_rpm = -DEFAULT_RPM
-        elif keys[pygame.K_a]:
-            m.front_left_rpm = -DEFAULT_RPM
-            m.front_right_rpm = DEFAULT_RPM
-            m.back_right_rpm = DEFAULT_RPM
-            m.back_left_rpm = -DEFAULT_RPM
-        elif keys[pygame.K_e]:
-            m.front_left_rpm = DEFAULT_RPM
-            m.front_right_rpm = -DEFAULT_RPM
-            m.back_right_rpm = -DEFAULT_RPM
-            m.back_left_rpm = DEFAULT_RPM
-        else:
-            m.front_left_rpm = 0.0
-            m.front_right_rpm = 0.0
-            m.back_right_rpm = 0.0
-            m.back_left_rpm = 0.0
-
-        self.pub_cmd.publish(m)
-        self.get_logger().info(f"Sent RPMs {m.front_left_rpm}, {m.front_right_rpm}, {m.back_right_rpm}, {m.back_left_rpm}")
-
-
-    def check_input_pwm(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                raise KeyboardInterrupt
-
-        m = WheelSpeeds()
+            
+        f = self.WheelDir.FORWARD
+        b = self.WheelDir.BACK
+        s = self.WheelDir.STOP
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_z]:
-            m.front_left_wheel_speed = DEFAULT_PWM
-            m.front_right_wheel_speed = DEFAULT_PWM
-            m.back_right_wheel_speed = DEFAULT_PWM
-            m.back_left_wheel_speed = DEFAULT_PWM
+            self.set_wheel_dirs(in_rpm, f, f, f, f)
         elif keys[pygame.K_s]:
-            m.front_left_wheel_speed = -DEFAULT_PWM
-            m.front_right_wheel_speed = -DEFAULT_PWM
-            m.back_right_wheel_speed = -DEFAULT_PWM
-            m.back_left_wheel_speed = -DEFAULT_PWM
+            self.set_wheel_dirs(in_rpm, b, b, b, b)
         elif keys[pygame.K_q]:
-            m.front_left_wheel_speed = -DEFAULT_PWM
-            m.front_right_wheel_speed = DEFAULT_PWM
-            m.back_right_wheel_speed = -DEFAULT_PWM
-            m.back_left_wheel_speed = DEFAULT_PWM
+            self.set_wheel_dirs(in_rpm, b, f, b, f)
         elif keys[pygame.K_d]:
-            m.front_left_wheel_speed = DEFAULT_PWM
-            m.front_right_wheel_speed = -DEFAULT_PWM
-            m.back_right_wheel_speed = DEFAULT_PWM
-            m.back_left_wheel_speed = -DEFAULT_PWM
+            self.set_wheel_dirs(in_rpm, f, b, f, b)
         elif keys[pygame.K_a]:
-            m.front_left_wheel_speed = -DEFAULT_PWM
-            m.front_right_wheel_speed = DEFAULT_PWM
-            m.back_right_wheel_speed = DEFAULT_PWM
-            m.back_left_wheel_speed = -DEFAULT_PWM
+            self.set_wheel_dirs(in_rpm, b, f, f, b)
         elif keys[pygame.K_e]:
-            m.front_left_wheel_speed = DEFAULT_PWM
-            m.front_right_wheel_speed = -DEFAULT_PWM
-            m.back_right_wheel_speed = -DEFAULT_PWM
-            m.back_left_wheel_speed = DEFAULT_PWM
+            self.set_wheel_dirs(in_rpm, f, b, b, f)
         else:
-            m.front_left_wheel_speed = 0
-            m.front_right_wheel_speed = 0
-            m.back_right_wheel_speed = 0
-            m.back_left_wheel_speed = 0
-
-        self.pub_pwm.publish(m)
-        self.get_logger().info(
-            f"Sent PWMs {m.front_left_wheel_speed}, {m.front_right_wheel_speed}, {m.back_right_wheel_speed}, {m.back_left_wheel_speed}")
-
+            self.set_wheel_dirs(in_rpm, s, s, s, s)
 
 def main():
     rclpy.init()
