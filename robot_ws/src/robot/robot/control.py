@@ -96,7 +96,7 @@ class Control(SteadyNode):
             self.WheelControl(base_pwm(self.back_left_RPM), 0.855, 1.24, 0, self.get_logger()),
         ]
 
-        self.get_logger().info("Control node launched")
+        self.get_logger().info("Control Node launched")
 
     def cmd_callback(self, cmd_msg: RPMs):
         self.get_logger().info(
@@ -205,6 +205,11 @@ class Control(SteadyNode):
 def main():
     rclpy.init()
     node = Control()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()

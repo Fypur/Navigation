@@ -48,7 +48,7 @@ class LidarNode(Node):
         self.pub_obstacles = self.create_publisher(Lidar, '/robot/lidar_obstacles', 10)
         
         self.get_logger().info(
-            f"""Noeud Lidar démarré, min={self.min_dist}m, max={self.max_dist}m, seuil_obstacle={self.obs_range}m"""
+            f"""Lidar Node launched, min={self.min_dist}m, max={self.max_dist}m, seuil_obstacle={self.obs_range}m"""
         )
         
     # -- Callback principal --
@@ -105,7 +105,8 @@ def main():
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
     
 if __name__ == '__main__':
     main()

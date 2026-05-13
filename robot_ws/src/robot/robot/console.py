@@ -202,7 +202,14 @@ Commands :
 
 def main():
     rclpy.init()
-    rclpy.spin(Console())
-    rclpy.shutdown()
+    node = Console()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 main()
