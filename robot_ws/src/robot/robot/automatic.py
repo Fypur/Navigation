@@ -12,7 +12,7 @@ DWA_SIM_TIME        = 1.5     # s     durée de simulation d'une trajectoire
 DWA_SIM_STEPS       = 15      # int   pas de simulation
 
 DWA_ROBOT_RADIUS    = 0.15    # m     rayon du robot (clearance)
-DWA_OBSTACLE_MARGIN = 0.5    # m     marge de sécurité supplémentaire
+DWA_OBSTACLE_MARGIN = 0.10    # m     marge de sécurité supplémentaire
 DWA_LETHAL_DIST     = 0.10    # m     distance en dessous de laquelle on bloque
 
 DWA_W_HEADING       = 0.5     # poids cap vers le but
@@ -25,7 +25,6 @@ NAV_GOAL_ANGLE_TOL  = 0.2     # rad   tolérance angulaire
 
 """
 Noeud Automatic - Navigation autonome avec la méthode DWA
-S'intègre parfaitement à l'architecture existante.
 """
 
 import math
@@ -180,7 +179,7 @@ class Automatic(SteadyNode):
 
         best_score = -np.inf
         best_cmd   = None
-        obs = self.obstacle_pts
+        obs = self.obstacle_pts[::5]
 
         for vx in vx_arr:
             for vy in vy_arr:

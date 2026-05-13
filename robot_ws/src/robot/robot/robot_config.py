@@ -53,7 +53,6 @@ LIDAR_OBSTACLE_RANGE = 2.0   # Distance en dessous de laquelle un point est un "
 ENCODER_NOISE_THRESHOLD = 0.5
 
 
-
 # CINÉMATIQUE DU ROBOT
 
 
