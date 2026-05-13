@@ -23,11 +23,58 @@ DWA_W_GOAL_DIST     = 0.2     # poids distance euclidienne au but
 NAV_GOAL_DIST_TOL   = 0.2     # m     on considère le but atteint
 NAV_GOAL_ANGLE_TOL  = 0.2     # rad   tolérance angulaire
 
+# -- Robustesse : mémoire et récupération --
+
+# Durée de vie d'un obstacle mémorisé (s). Les obstacles récents sont conservés
+# même si le lidar ne les voit plus (angle mort, latence).
+OBSTACLE_MEMORY_SEC = 0.5
+
+# Délai max sans donnée lidar avant de passer en mode conservateur (s).
+LIDAR_STALE_SEC     = 0.3
+
+# Nombre de cycles consécutifs sans trajectoire valide avant de déclencher
+# la récupération.
+STUCK_COUNT_THRESH  = 5
+
+# ── Récupération par paliers ────────────────────────────────────────────────
+#
+#  Palier 0 – ROTATION SUR PLACE
+#    Le robot est peut-être juste mal orienté. On tourne vers la direction
+#    la plus dégagée sans reculer. Courte durée, peu d'énergie.
+#
+#  Palier 1 – RECUL + ROTATION (guidée par les obstacles)
+#    On calcule le vecteur moyen des obstacles proches et on fuit dans la
+#    direction opposée, avec une rotation pour s'aligner. Un bruit aléatoire
+#    σ=30 % est ajouté pour ne pas répéter le même geste.
+#
+#  Palier 2 – RECUL AGRESSIF + ROTATION ALÉATOIRE LARGE
+#    Si les deux premiers paliers ont échoué, on suppose qu'on est dans un
+#    couloir ou un coin. Recul plus rapide + rotation ample tirée uniformément
+#    dans [−WZ_MAX, +WZ_MAX] pour explorer des directions très différentes.
+#
+# Les paliers se succèdent automatiquement : chaque fois que _start_recovery
+# est appelé alors qu'on sort d'un état recovery, on monte d'un palier.
+# Le compteur se remet à 0 dès que DWA trouve une trajectoire valide.
+# ────────────────────────────────────────────────────────────────────────────
+
+RECOVERY_STAGES = [
+    # (durée_s, vx_base, vx_noise_σ, wz_max, wz_noise_σ)
+    # Palier 0 : rotation sur place, pas de recul
+    dict(duration=1.0,  vx_base= 0.00, vx_sigma=0.00, wz_max=0.6,  wz_sigma=0.15),
+    # Palier 1 : recul léger, rotation guidée + petit bruit
+    dict(duration=1.5,  vx_base=-0.15, vx_sigma=0.04, wz_max=0.8,  wz_sigma=0.20),
+    # Palier 2 : recul fort, rotation très aléatoire
+    dict(duration=2.0,  vx_base=-0.25, vx_sigma=0.06, wz_max=1.0,  wz_sigma=0.30),
+]
+
+
 """
 Noeud Automatic - Navigation autonome avec la méthode DWA
 """
 
 import math
+import time
+import random
 import numpy as np
 import rclpy
 from robot.steady_node import SteadyNode
@@ -82,9 +129,33 @@ class Automatic(SteadyNode):
         self.goal_x: float = DEFAULT_GOAL_X
         self.goal_y: float = DEFAULT_GOAL_Y
         
-        # Obstacles en repère local
-        self.obstacle_pts = np.empty((0, 2), dtype=np.float64)
-        
+        # ------------------------------------------------------------------ #
+        # Obstacles : tableau (N, 3) → [x_local, y_local, timestamp]
+        # On conserve les obstacles récents même s'ils ont disparu du scan,
+        # pour combler les angles morts et la latence du lidar.
+        # ------------------------------------------------------------------ #
+        self._obs_memory: list[tuple[float, float, float]] = []
+        self._lidar_last_stamp: float = 0.0   # horodatage du dernier scan valide
+
+        # ------------------------------------------------------------------ #
+        # Machine à états de récupération
+        # États : "navigate" | "recovery"
+        # ------------------------------------------------------------------ #
+        self._state = "navigate"
+        self._stuck_count    = 0      # nb de cycles consécutifs sans trajectoire
+        self._recovery_stage = 0      # palier actuel (0, 1, 2)
+        self._recovery_start: float = 0.0
+        # Commande courante — recalculée chaque cycle avec bruit continu
+        self._recovery_vx: float = 0.0
+        self._recovery_wz: float = 0.0
+        # Paramètres du palier en cours
+        self._rec_vx_base:  float = 0.0
+        self._rec_vx_sigma: float = 0.0
+        self._rec_wz_max:   float = 0.0
+        self._rec_wz_sigma: float = 0.0
+        self._rec_wz_sign:  float = 1.0   # direction principale tirée au début du palier
+        self._rec_duration: float = 0.0
+
         # Boucle de contrôle
         self.create_timer(1.0 / AUTO_LOOP_HZ, self.control_loop)
         
@@ -99,23 +170,42 @@ class Automatic(SteadyNode):
             if self.is_auto:
                 self._stop()
                 self.is_auto = False
+                self._state = "navigate"
+                self._stuck_count = 0
                 self.get_logger().info("Mode MANUEL activé. Arrêt de la navigation auto.")
             else:
                 self.is_auto = True
                 self.goal_reached = False
+                self._recovery_stage = 0
                 self.get_logger().info("Mode AUTOMATIQUE activé.")
             
     def goal_callback(self, msg: Point):
         self.set_goal(msg.x, msg.y)
         
     def lidar_callback(self, msg: Lidar):
-        """Stocke les points obstacles projetés dans le repère ROBOT."""
-        pts = [
-            [d * math.cos(a), d * math.sin(a)] 
+        """
+        Stocke les points obstacles dans le repère ROBOT avec horodatage.
+        La mémoire temporelle permet de conserver les obstacles récents
+        qui ne sont plus dans le champ de vue courant (angles morts, latence).
+        """
+        now = time.monotonic()
+        self._lidar_last_stamp = now
+
+        # Nouveaux points du scan courant
+        new_pts = [
+            (d * math.cos(a), d * math.sin(a), now)
             for a, d in zip(msg.angles, msg.distances)
             if math.isfinite(d) and d > LIDAR_MIN_DIST
         ]
-        self.obstacle_pts = np.array(pts, dtype=np.float64) if pts else np.empty((0, 2))
+
+        # Expiration des anciens points
+        cutoff = now - OBSTACLE_MEMORY_SEC
+        self._obs_memory = [p for p in self._obs_memory if p[2] > cutoff]
+
+        # Fusion : on ajoute les nouveaux points.
+        # On pourrait dédupliquer mais c'est coûteux ; le ::2 ci-dessous
+        # suffit à garder une densité raisonnable.
+        self._obs_memory.extend(new_pts)
     
     def pos_callback(self, msg: Pose2D):
         self.robot_x = msg.x
@@ -132,8 +222,46 @@ class Automatic(SteadyNode):
         if self.goal_reached:
             self._stop()
             return
+
+        # ------------------------------------------------------------------ #
+        # État RECOVERY : on exécute la manœuvre avec bruit continu
+        # ------------------------------------------------------------------ #
+        if self._state == "recovery":
+            elapsed = time.monotonic() - self._recovery_start
+            if elapsed < self._rec_duration:
+                # Bruit gaussien re-tiré à chaque cycle pour un mouvement
+                # organique — le robot "tâtonne" plutôt que de tracer
+                # une trajectoire rigide.
+                vx_noisy = self._rec_vx_base + random.gauss(0.0, self._rec_vx_sigma)
+                wz_noisy = (self._rec_wz_sign * self._rec_wz_max
+                            + random.gauss(0.0, self._rec_wz_sigma))
+                wz_noisy = _clamp(wz_noisy,
+                                  -RECOVERY_STAGES[-1]["wz_max"],
+                                   RECOVERY_STAGES[-1]["wz_max"])
+                self._publish_command(vx_noisy, 0.0, wz_noisy)
+                return
+            else:
+                # Fin du palier → retour à la navigation normale
+                self._state = "navigate"
+                self._stuck_count = 0
+                self.get_logger().info(
+                    f"Récupération palier {self._recovery_stage} terminée — "
+                    "reprise de la navigation."
+                )
+
+        # ------------------------------------------------------------------ #
+        # Avertissement lidar périmé
+        # ------------------------------------------------------------------ #
+        now = time.monotonic()
+        lidar_age = now - self._lidar_last_stamp
+        if self._lidar_last_stamp > 0 and lidar_age > LIDAR_STALE_SEC:
+            self.get_logger().warn(
+                f"Lidar périmé ({lidar_age:.2f}s) — navigation conservatrice"
+            )
         
+        # ------------------------------------------------------------------ #
         # Vérification de l'atteinte de la cible
+        # ------------------------------------------------------------------ #
         dist_to_goal = math.hypot(self.goal_x - self.robot_x, self.goal_y - self.robot_y)
         if dist_to_goal < NAV_GOAL_DIST_TOL:
             self.get_logger().info("Cible atteinte !")
@@ -141,27 +269,167 @@ class Automatic(SteadyNode):
             self._stop()
             return
         
+        # ------------------------------------------------------------------ #
         # Calcul du but dans le repère robot
+        # ------------------------------------------------------------------ #
         dx = self.goal_x - self.robot_x
         dy = self.goal_y - self.robot_y
         cos_t, sin_t = math.cos(self.robot_theta), math.sin(self.robot_theta)
         goal_local_x =  dx * cos_t + dy * sin_t
         goal_local_y = -dx * sin_t + dy * cos_t
 
+        # ------------------------------------------------------------------ #
+        # Construction du nuage d'obstacles (avec mémoire + sous-éch. léger)
+        # ------------------------------------------------------------------ #
+        obs = self._get_obstacle_array()
+
+        # ------------------------------------------------------------------ #
+        # Vérification : est-on déjà trop proche d'un obstacle ?
+        # ------------------------------------------------------------------ #
+        if obs.shape[0] > 0:
+            min_dist_now = float(np.hypot(obs[:, 0], obs[:, 1]).min())
+            if min_dist_now < DWA_ROBOT_RADIUS:
+                self.get_logger().warn(
+                    f"Obstacle à {min_dist_now:.3f}m — déclenchement immédiat de la récupération"
+                )
+                self._start_recovery()
+                return
+
+        # ------------------------------------------------------------------ #
         # Calcul DWA
-        best_cmd, best_score = self._dwa(goal_local_x, goal_local_y)
+        # ------------------------------------------------------------------ #
+        best_cmd, _ = self._dwa(goal_local_x, goal_local_y, obs)
         
         if best_cmd is None:
-            self.get_logger().warn("DWA : aucune trajectoire sûre — arrêt d'urgence")
+            self._stuck_count += 1
+            self.get_logger().warn(
+                f"DWA : aucune trajectoire sûre ({self._stuck_count}/{STUCK_COUNT_THRESH})"
+            )
             self._stop()
+
+            if self._stuck_count >= STUCK_COUNT_THRESH:
+                self._start_recovery()
         else:
+            self._stuck_count = 0
+            self._recovery_stage = 0   # succès → on repart du palier 0
             vx, vy, wz = best_cmd
             self._publish_command(vx, vy, wz)
 
+    # ====================================================================== #
+    #  Récupération par paliers avec direction de fuite guidée
+    # ====================================================================== #
 
-    # -- Algorithme DWA --
+    def _start_recovery(self):
+        """
+        Déclenche (ou escalade) la manœuvre de récupération.
+
+        Stratégie :
+        ─────────────────────────────────────────────────────────────────────
+        1. On calcule la direction de fuite optimale à partir des obstacles
+           proches : vecteur répulsif = moyenne des vecteurs (robot→obstacle)
+           inversée. C'est la direction la plus dégagée.
+
+        2. On ajoute un bruit gaussien autour de cette direction. Le bruit
+           augmente avec le palier, ce qui élargit l'espace exploré si les
+           tentatives précédentes ont échoué.
+
+        3. Le signe de la rotation est cohérent avec la direction de fuite
+           (on tourne vers l'espace libre), mais légèrement bruité.
+
+        Paliers successifs (voir RECOVERY_STAGES) :
+          0 → rotation sur place (on cherche juste un meilleur cap)
+          1 → recul modéré + rotation guidée
+          2 → recul fort + rotation très aléatoire (exploration large)
+        ─────────────────────────────────────────────────────────────────────
+        """
+        # Escalade du palier si on était déjà en recovery
+        if self._state == "recovery":
+            self._recovery_stage = min(
+                self._recovery_stage + 1, len(RECOVERY_STAGES) - 1
+            )
+        # Sinon on repart du palier 0 sauf si on enchaîne des échecs
+        # (stuck_count >> thresh : on saute directement au palier 1)
+        elif self._stuck_count >= STUCK_COUNT_THRESH * 3:
+            self._recovery_stage = min(
+                self._recovery_stage + 1, len(RECOVERY_STAGES) - 1
+            )
+        else:
+            # On ne remet PAS à zéro le palier entre deux blocages proches
+            pass
+
+        stage = RECOVERY_STAGES[self._recovery_stage]
+        self._rec_vx_base  = stage["vx_base"]
+        self._rec_vx_sigma = stage["vx_sigma"]
+        self._rec_wz_max   = stage["wz_max"]
+        self._rec_wz_sigma = stage["wz_sigma"]
+        self._rec_duration = stage["duration"]
+
+        # ── Direction de fuite ──────────────────────────────────────────── #
+        # Vecteur répulsif : somme des vecteurs pointant DU robot VERS
+        # chaque obstacle, retournée (on veut s'éloigner de la masse).
+        obs = self._get_obstacle_array()
+        escape_angle = 0.0  # repère robot → 0 = tout droit devant
+
+        if obs.shape[0] > 0:
+            # On ne considère que les obstacles proches pour la direction
+            dists = np.hypot(obs[:, 0], obs[:, 1])
+            nearby = obs[dists < (DWA_ROBOT_RADIUS + DWA_OBSTACLE_MARGIN) * 4]
+            if nearby.shape[0] > 0:
+                # Vecteur répulsif pondéré par 1/d² (les plus proches comptent plus)
+                d2 = np.hypot(nearby[:, 0], nearby[:, 1]) ** 2 + 1e-6
+                rep_x = -np.sum(nearby[:, 0] / d2)
+                rep_y = -np.sum(nearby[:, 1] / d2)
+                escape_angle = math.atan2(rep_y, rep_x)
+
+        # Signe de rotation : on tourne vers l'angle de fuite
+        # (si escape_angle > 0 → obstacle à gauche → on tourne à droite, etc.)
+        self._rec_wz_sign = -math.copysign(1.0, escape_angle) if abs(escape_angle) > 0.1 \
+                             else random.choice([-1.0, 1.0])
+
+        self._state = "recovery"
+        self._recovery_start = time.monotonic()
+        self._stuck_count = 0
+
+        self.get_logger().warn(
+            f"RECOVERY palier {self._recovery_stage} | "
+            f"vx_base={self._rec_vx_base:.2f} m/s  "
+            f"wz_max={self._rec_wz_max:.2f} rad/s  "
+            f"escape_angle={math.degrees(escape_angle):.0f}°  "
+            f"durée={self._rec_duration:.1f}s"
+        )
+
+    # ====================================================================== #
+    #  Gestion des obstacles avec mémoire
+    # ====================================================================== #
+
+    def _get_obstacle_array(self) -> np.ndarray:
+        """
+        Retourne un tableau (N, 2) des positions d'obstacles (repère robot)
+        en fusionnant le scan courant et la mémoire temporelle.
+        
+        On prend un point sur deux pour éviter une explosion du coût de
+        _simulate_trajectory, mais SANS sauter les points proches (on applique
+        le sous-échantillonnage uniquement aux points éloignés).
+        """
+        if not self._obs_memory:
+            return np.empty((0, 2), dtype=np.float64)
+
+        pts = np.array([(x, y) for x, y, _ in self._obs_memory], dtype=np.float64)
+
+        # Séparer les points proches (< 2×rayon de sécurité) des points lointains
+        dists = np.hypot(pts[:, 0], pts[:, 1])
+        close_mask = dists < (DWA_ROBOT_RADIUS + DWA_OBSTACLE_MARGIN) * 2.0
+        close_pts  = pts[close_mask]
+        far_pts    = pts[~close_mask][::2]  # sous-éch. ×2 seulement pour les lointains
+
+        return np.vstack([close_pts, far_pts]) if (close_pts.shape[0] + far_pts.shape[0]) > 0 \
+               else np.empty((0, 2), dtype=np.float64)
+
+    # ====================================================================== #
+    #  Algorithme DWA
+    # ====================================================================== #
     
-    def _dwa(self, goal_lx: float, goal_ly: float):
+    def _dwa(self, goal_lx: float, goal_ly: float, obs: np.ndarray):
         dt_ctrl = 1.0 / AUTO_LOOP_HZ
         acc_v   = DWA_MAX_ACC_V * dt_ctrl
         acc_w   = DWA_MAX_ACC_W * dt_ctrl
@@ -179,7 +447,6 @@ class Automatic(SteadyNode):
 
         best_score = -np.inf
         best_cmd   = None
-        obs = self.obstacle_pts[::5]
 
         for vx in vx_arr:
             for vy in vy_arr:
@@ -301,6 +568,9 @@ class Automatic(SteadyNode):
         self.goal_x = x
         self.goal_y = y
         self.goal_reached = False
+        self._state = "navigate"
+        self._stuck_count = 0
+        self._recovery_stage = 0
         self.get_logger().info(f"Nouvelle cible (DWA) : ({x:.2f},{y:.2f})")
 
 
