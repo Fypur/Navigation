@@ -1,49 +1,47 @@
-# -- Navigation DWA --
+# -- Noeud de Navigation Automatic (Navigation DWA) --
+
+# Limites cinématiques du robot
 DWA_MAX_VX          = 0.5     # m/s   vitesse longitudinale max
-DWA_MAX_VY          = 0.5     # m/s   vitesse latérale max
-DWA_MAX_WZ          = 1.0     # rad/s vitesse angulaire max
+DWA_MAX_VY          = 0.5     # m/s   vitesse latérale max car Robot holonome
+DWA_MAX_WZ          = 1.0     # rad/s vitesse de rotation max
 DWA_MAX_ACC_V       = 1.0     # m/s²  accélération linéaire max
 DWA_MAX_ACC_W       = 2.0     # rad/s² accélération angulaire max
 
+# Paramètres d'échantillonnage de l'espace des vitesses
 DWA_V_SAMPLES       = 5       # nombre d'échantillons sur vx (et vy)
 DWA_W_SAMPLES       = 7       # nombre d'échantillons sur wz
 
-DWA_SIM_TIME        = 1.5     # s     durée de simulation d'une trajectoire
-DWA_SIM_STEPS       = 15      # int   pas de simulation
+# Paramètres de prédiction
+DWA_SIM_TIME        = 1.5     # horizon de prédiction en s
+DWA_SIM_STEPS       = 15      # discrétisation de la trajectoire
 
+# Gestion des collsions et marges de sécurité
 DWA_ROBOT_RADIUS    = 0.15    # m     rayon du robot (clearance)
 DWA_OBSTACLE_MARGIN = 0.15    # m     marge de sécurité supplémentaire
 DWA_LETHAL_DIST     = 0.10    # m     distance en dessous de laquelle on bloque
 
+# Poids de la fonction de coût
 DWA_W_HEADING       = 0.5     # poids cap vers le but
 DWA_W_CLEARANCE     = 0.2     # poids distance aux obstacles
 DWA_W_VELOCITY      = 0.1     # poids vitesse (favorise les trajectoires rapides)
 DWA_W_GOAL_DIST     = 0.2     # poids distance euclidienne au but
 
-NAV_GOAL_DIST_TOL   = 0.2     # m     on considère le but atteint
-NAV_GOAL_ANGLE_TOL  = 0.2     # rad   tolérance angulaire
+# Seuils d'arrivée
+NAV_GOAL_DIST_TOL  = 0.2  # m     on considère le but atteint
+NAV_GOAL_ANGLE_TOL = 0.2  # rad   tolérance angulaire
 
-# -- Robustesse --
 
-# Durée de vie d'un obstacle mémorisé (s).
-OBSTACLE_MEMORY_SEC = 0.5
+# Paramètres de robustesse et mode de Recovery
+OBSTACLE_MEMORY_SEC = 0.5  # durée de vie d'un obstacle mémorisé (s)
+LIDAR_STALE_SEC     = 0.3  # timeout de sécurité donnée lidar (s)
+STUCK_COUNT_THRESH  = 5    # seuil de déclenchement de la séquence de dégagement
 
-# Délai max sans donnée lidar avant avertissement (s).
-LIDAR_STALE_SEC     = 0.3
-
-# Cycles consécutifs sans trajectoire avant déclenchement de la récupération.
-STUCK_COUNT_THRESH  = 5
-
-# Récupération : recul puis rotation, durées et vitesses fixes.
+# Récupération : recul puis rotation, durées et vitesses fixes
 RECOVERY_BACKUP_S   = 1.0    # s      durée du recul
 RECOVERY_ROTATE_S   = 1.2    # s      durée de la rotation
 RECOVERY_VX         = -0.15  # m/s    vitesse de recul (négatif = reculer)
-RECOVERY_WZ         = 0.6    # rad/s  vitesse de rotation (le signe alterne)
+RECOVERY_WZ         = 0.6    # rad/s  vitesse de rotation (le signe change pour ne pas faire deux fois la meme chose)
 
-
-"""
-Noeud Automatic - Navigation autonome avec la méthode DWA
-"""
 
 import math
 import time
@@ -59,7 +57,7 @@ from robot.robot_config import (
     DEFAULT_GOAL_X, DEFAULT_GOAL_Y, AUTO_LOOP_HZ
 )
 
-
+# Fonctions utilitaires
 def _angle_wrap(angle: float) -> float:
     while angle > math.pi:  angle -= 2 * math.pi
     while angle < -math.pi: angle += 2 * math.pi
@@ -83,14 +81,16 @@ class Automatic(SteadyNode):
         # -- Publication --
         self.pub_cmd = self.create_publisher(RPMs, '/robot/command', 10)
 
-        # -- État robot --
+        # Etat robot
         self.is_auto      = False
         self.goal_reached = False
 
+        # Position estimée (Odométrie + Lidar)
         self.robot_x     : float = 0.0
         self.robot_y     : float = 0.0
         self.robot_theta : float = 0.0
 
+        # Consignes de vitesse actuelles
         self.vx_cur = 0.0
         self.vy_cur = 0.0
         self.wz_cur = 0.0
@@ -98,15 +98,15 @@ class Automatic(SteadyNode):
         self.goal_x : float = DEFAULT_GOAL_X
         self.goal_y : float = DEFAULT_GOAL_Y
 
-        # -- Mémoire obstacles (repère MONDE + horodatage) --
-        # Stocker en repère monde est indispensable : si on stockait en repère
+        # Mémoire obstacles (repère MONDE + moment)
+        # Stocker en repère monde est important : si on stockait en repère
         # robot, les vieux points deviendraient faux dès que le robot tourne,
-        # faisant croire à DWA qu'il est cerné d'obstacles fantômes.
+        # faisant croire à DWA qu'il est cerné d'obstacles fantômes
         self._obs_memory       : list[tuple[float, float, float]] = []
         self._lidar_last_stamp : float = 0.0
 
-        # -- Machine à états de récupération --
-        # États : "navigate" | "backup" | "rotate"
+        # Machine à états de récupération
+        # Etats : "navigate" | "backup" | "rotate"
         self._state       = "navigate"
         self._stuck_count = 0
         self._phase_start : float = 0.0
@@ -114,15 +114,15 @@ class Automatic(SteadyNode):
         # de toujours tourner du même côté.
         self._recovery_wz_sign : float = 1.0
 
+        # Timer de la boucle d'asservissement
         self.create_timer(1.0 / AUTO_LOOP_HZ, self.control_loop)
         self.get_logger().info(
             f"Noeud Automatic (DWA) lancé — cible : ({self.goal_x:.2f}, {self.goal_y:.2f})"
         )
 
-    # ------------------------------------------------------------------ #
-    #  Callbacks
-    # ------------------------------------------------------------------ #
+    # -- Callbacks --
 
+    # Gestion du passage manuel/auto
     def enable_auto_callback(self, msg: Bool):
         if self.is_auto == msg.data:
             return
@@ -140,17 +140,15 @@ class Automatic(SteadyNode):
     def goal_callback(self, msg: Point):
         self.set_goal(msg.x, msg.y)
 
+    # Transformation des points Lidar du repère local vers le repère monde
     def lidar_callback(self, msg: Lidar):
-        """
-        Projette les points lidar en repère MONDE et les mémorise.
-        La transformation est faite ici une fois, avec la pose courante.
-        """
         now = time.monotonic()
         self._lidar_last_stamp = now
 
         rx, ry, rt   = self.robot_x, self.robot_y, self.robot_theta
         cos_t, sin_t = math.cos(rt), math.sin(rt)
 
+        # Matrice de rotation 2D + translation
         new_pts = [
             (rx + d * (math.cos(a) * cos_t - math.sin(a) * sin_t),
              ry + d * (math.cos(a) * sin_t + math.sin(a) * cos_t),
@@ -159,6 +157,7 @@ class Automatic(SteadyNode):
             if math.isfinite(d) and d > LIDAR_MIN_DIST
         ]
 
+        # Rafraichissement de la memoire tampon
         cutoff = now - OBSTACLE_MEMORY_SEC
         self._obs_memory = [p for p in self._obs_memory if p[2] > cutoff]
         self._obs_memory.extend(new_pts)
@@ -168,9 +167,8 @@ class Automatic(SteadyNode):
         self.robot_y     = msg.y
         self.robot_theta = msg.theta
 
-    # ------------------------------------------------------------------ #
-    #  Boucle principale
-    # ------------------------------------------------------------------ #
+
+    # -- Boucle principale --
 
     def control_loop(self):
         if not self.is_auto:
@@ -179,7 +177,7 @@ class Automatic(SteadyNode):
             self._stop()
             return
 
-        # ── Récupération : recul ────────────────────────────────────────
+        # Récupération : recul
         if self._state == "backup":
             if time.monotonic() - self._phase_start < RECOVERY_BACKUP_S:
                 self._publish_command(RECOVERY_VX, 0.0, 0.0)
@@ -188,22 +186,22 @@ class Automatic(SteadyNode):
             self._state       = "rotate"
             self._phase_start = time.monotonic()
 
-        # ── Récupération : rotation ─────────────────────────────────────
+        # Récupération : rotation
         if self._state == "rotate":
             if time.monotonic() - self._phase_start < RECOVERY_ROTATE_S:
                 self._publish_command(0.0, 0.0, self._recovery_wz_sign * RECOVERY_WZ)
                 return
-            # Rotation terminée → retour à la navigation
+            # Rotation terminée -> retour à la navigation
             self._state       = "navigate"
             self._stuck_count = 0
             self.get_logger().info("Récupération terminée — reprise de la navigation.")
 
-        # ── Avertissement lidar périmé ──────────────────────────────────
+        # Avertissement lidar périmé
         lidar_age = time.monotonic() - self._lidar_last_stamp
         if self._lidar_last_stamp > 0 and lidar_age > LIDAR_STALE_SEC:
             self.get_logger().warn(f"Lidar périmé ({lidar_age:.2f}s)")
 
-        # ── Cible atteinte ? ────────────────────────────────────────────
+        # Cible atteinte ?
         dist_to_goal = math.hypot(self.goal_x - self.robot_x, self.goal_y - self.robot_y)
         if dist_to_goal < NAV_GOAL_DIST_TOL:
             self.get_logger().info("Cible atteinte !")
@@ -211,23 +209,23 @@ class Automatic(SteadyNode):
             self._stop()
             return
 
-        # ── But en repère robot ─────────────────────────────────────────
+        # But en repère robot
         dx, dy       = self.goal_x - self.robot_x, self.goal_y - self.robot_y
         cos_t, sin_t = math.cos(self.robot_theta), math.sin(self.robot_theta)
         goal_lx      =  dx * cos_t + dy * sin_t
         goal_ly      = -dx * sin_t + dy * cos_t
 
-        # ── Obstacles ──────────────────────────────────────────────────
+        # Récupération des obstacles filtrés
         obs = self._get_obstacle_array()
 
-        # Vérification d'impact immédiat (avant DWA)
+        # Vérification d'impact immédiat ( sécurité avant DWA)
         if obs.shape[0] > 0:
             if float(np.hypot(obs[:, 0], obs[:, 1]).min()) < DWA_ROBOT_RADIUS:
                 self.get_logger().warn("Obstacle immédiat — récupération d'urgence")
                 self._start_recovery()
                 return
 
-        # ── DWA ────────────────────────────────────────────────────────
+        # Calcul de la commande optimale via DWA
         best_cmd, _ = self._dwa(goal_lx, goal_ly, obs)
 
         if best_cmd is None:
@@ -242,16 +240,8 @@ class Automatic(SteadyNode):
             self._stuck_count = 0
             self._publish_command(*best_cmd)
 
-    # ------------------------------------------------------------------ #
-    #  Récupération
-    # ------------------------------------------------------------------ #
-
+    # Alterne le sens de rotation pour maximiser les chances de dégagement
     def _start_recovery(self):
-        """
-        Lance la séquence : recul droit, puis rotation sur place.
-        Le sens de rotation alterne à chaque appel (gauche, droite, gauche…)
-        pour ne pas boucler toujours du même côté.
-        """
         self._recovery_wz_sign *= -1.0
         self._state       = "backup"
         self._phase_start = time.monotonic()
@@ -261,15 +251,8 @@ class Automatic(SteadyNode):
             f"{'droite' if self._recovery_wz_sign > 0 else 'gauche'} {RECOVERY_ROTATE_S:.1f}s"
         )
 
-    # ------------------------------------------------------------------ #
-    #  Obstacles
-    # ------------------------------------------------------------------ #
-
+    # Reprojette les points mémorisés en local pour l'algorithme DWA
     def _get_obstacle_array(self) -> np.ndarray:
-        """
-        Transforme les points monde → repère robot courant à la volée.
-        Les points proches ne sont jamais sous-échantillonnés.
-        """
         if not self._obs_memory:
             return np.empty((0, 2), dtype=np.float64)
 
@@ -282,25 +265,25 @@ class Automatic(SteadyNode):
              for wx, wy, _ in self._obs_memory],
             dtype=np.float64
         )
-
+        
+        # Echantillonnage adaptatif ; on garde tous les points proches, on réduit au loin
         dists      = np.hypot(pts[:, 0], pts[:, 1])
         close_mask = dists < (DWA_ROBOT_RADIUS + DWA_OBSTACLE_MARGIN) * 2.0
         close_pts  = pts[close_mask]
         far_pts    = pts[~close_mask][::2]
 
-        return np.vstack([close_pts, far_pts]) \
-               if (close_pts.shape[0] + far_pts.shape[0]) > 0 \
-               else np.empty((0, 2), dtype=np.float64)
+        return np.vstack([close_pts, far_pts]) if (close_pts.shape[0] + far_pts.shape[0]) > 0 else np.empty((0, 2), dtype=np.float64)
 
-    # ------------------------------------------------------------------ #
-    #  DWA
-    # ------------------------------------------------------------------ #
 
+    # -- Coeur de l'algo DWA --
+    
+    # Génération et évaluation de l'espace des vitesses (Fenêtre dynamique)
     def _dwa(self, goal_lx: float, goal_ly: float, obs: np.ndarray):
         dt_ctrl = 1.0 / AUTO_LOOP_HZ
         acc_v   = DWA_MAX_ACC_V * dt_ctrl
         acc_w   = DWA_MAX_ACC_W * dt_ctrl
 
+        # Définition de la fenêtre dynamique basée sur les capacités d'accélération
         vx_arr = np.linspace(max(-DWA_MAX_VX, self.vx_cur - acc_v),
                              min( DWA_MAX_VX, self.vx_cur + acc_v), DWA_V_SAMPLES)
         vy_arr = np.linspace(max(-DWA_MAX_VY, self.vy_cur - acc_v),
@@ -314,11 +297,14 @@ class Automatic(SteadyNode):
         for vx in vx_arr:
             for vy in vy_arr:
                 for wz in wz_arr:
+                    # Simulation de la trajectoire résultante
                     min_cl, fx, fy, ft = self._simulate_trajectory(vx, vy, wz, obs)
 
+                    # Élimination des trajectoires collisionnelles
                     if min_cl < DWA_ROBOT_RADIUS + DWA_OBSTACLE_MARGIN:
                         continue
-
+                    
+                    # Calcul des composantes de la fonction de coût (normalisées entre 0 et 1)
                     heading_score   = (1.0 + math.cos(
                         _angle_wrap(math.atan2(goal_ly, goal_lx) - ft))) / 2.0
                     clearance_score = min(min_cl, LIDAR_MAX_RANGE_M) / LIDAR_MAX_RANGE_M
@@ -327,6 +313,7 @@ class Automatic(SteadyNode):
                     max_possible    = math.hypot(goal_lx, goal_ly) + DWA_MAX_VX * DWA_SIM_TIME
                     goal_dist_score = 1.0 - min(final_dist / max(max_possible, 1e-6), 1.0)
 
+                    # Somme pondérée
                     score = (DWA_W_HEADING   * heading_score
                            + DWA_W_CLEARANCE * clearance_score
                            + DWA_W_VELOCITY  * velocity_score
@@ -335,7 +322,7 @@ class Automatic(SteadyNode):
                     if score > best_score:
                         best_score = score
                         best_cmd   = (vx, vy, wz)
-
+        # Update de la vitesse courante pour la prochaine itération (fenêtre glissante)
         if best_cmd is not None:
             self.vx_cur, self.vy_cur, self.wz_cur = best_cmd
         else:
@@ -343,6 +330,7 @@ class Automatic(SteadyNode):
 
         return best_cmd, best_score
 
+    # Intégration d'Euler pour prédire la position future
     def _simulate_trajectory(self, vx, vy, wz, obs):
         dt = DWA_SIM_TIME / DWA_SIM_STEPS
         x, y, theta = 0.0, 0.0, 0.0
@@ -351,6 +339,7 @@ class Automatic(SteadyNode):
         for _ in range(DWA_SIM_STEPS):
             cos_t = math.cos(theta)
             sin_t = math.sin(theta)
+            # Modèle cinématique d'un robot holonome
             x    += (vx * cos_t - vy * sin_t) * dt
             y    += (vx * sin_t + vy * cos_t) * dt
             theta = _angle_wrap(theta + wz * dt)
@@ -360,6 +349,7 @@ class Automatic(SteadyNode):
                 min_d = float(dists.min())
                 if min_d < min_clearance:
                     min_clearance = min_d
+                # Arrêt prématuré si collision fatale détectée
                 if min_d < DWA_LETHAL_DIST:
                     return min_d, x, y, theta
 
@@ -368,23 +358,26 @@ class Automatic(SteadyNode):
 
         return min_clearance, x, y, theta
 
-    # ------------------------------------------------------------------ #
-    #  Publication
-    # ------------------------------------------------------------------ #
 
+    #  Publication
+
+    # Calcul du mixage moteur pour châssis Mecanum (Cinématique inverse)
     def _publish_command(self, vx: float, vy: float, w: float):
         vx_n = _clamp(vx / DWA_MAX_VX, -1.0, 1.0)
         vy_n = _clamp(vy / DWA_MAX_VY, -1.0, 1.0)
         w_n  = _clamp(w  / DWA_MAX_WZ, -1.0, 1.0)
 
+        # Equations de distribution pour 4 roues Mecanum
         fl = vx_n - vy_n - w_n
         fr = vx_n + vy_n + w_n
         rr = vx_n - vy_n + w_n
         rl = vx_n + vy_n - w_n
 
+        # Normalisation pour ne pas saturer les moteurs
         m = max(abs(fl), abs(fr), abs(rr), abs(rl), 1.0)
         fl, fr, rr, rl = fl/m, fr/m, rr/m, rl/m
 
+        # Mapping vitesse linéaire -> RPM avec zone morte
         def to_rpm(n):
             if abs(n) < 0.02: return 0.0
             return math.copysign(MIN_RPM + (MAX_RPM - MIN_RPM) * abs(n), n)
@@ -396,6 +389,7 @@ class Automatic(SteadyNode):
         cmd.back_left_rpm   = float(to_rpm(rl))
         self.pub_cmd.publish(cmd)
 
+    # Consigne de vitesse nulle sur tous les actionneurs
     def _stop(self):
         self.vx_cur = self.vy_cur = self.wz_cur = 0.0
         cmd = RPMs()
@@ -403,10 +397,7 @@ class Automatic(SteadyNode):
         cmd.back_right_rpm = cmd.back_left_rpm   = 0.0
         self.pub_cmd.publish(cmd)
 
-    # ------------------------------------------------------------------ #
     #  Public
-    # ------------------------------------------------------------------ #
-
     def set_goal(self, x: float, y: float):
         self.goal_x       = x
         self.goal_y       = y
