@@ -6,7 +6,7 @@ import pygame
 from enum import IntEnum
 
 USE_RPM = True
-DEFAULT_RPM = 167.0
+DEFAULT_RPM = 150.0
 DEFAULT_PWM = 240
 
 class ZQSD_Control(Node):
@@ -63,6 +63,8 @@ class ZQSD_Control(Node):
             self.send_rpm(to_rpm(front_left), to_rpm(front_right), to_rpm(back_right), to_rpm(back_left))
         else:
             self.send_pwm(to_pwm(front_left), to_pwm(front_right), to_pwm(back_right), to_pwm(back_left))
+        
+        self.get_logger().info(f"Sent direction in {"rpm" if is_rpm else "pwm"}: {front_left.value, front_right.value, back_right.value, back_left.value}")
 
 
     def check_input(self, in_rpm: bool):
