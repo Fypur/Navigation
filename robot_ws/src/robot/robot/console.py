@@ -129,10 +129,10 @@ class Console(SteadyNode):
             self.pub_enable_auto.publish(msg)
 
             m = RPMs()
-            m.front_left_rpm = 0
-            m.front_right_rpm = 0
-            m.back_right_rpm = 0
-            m.back_left_rpm = 0
+            m.front_left_rpm = 0.
+            m.front_right_rpm = 0.
+            m.back_right_rpm = 0.
+            m.back_left_rpm = 0.
 
             self.pub_cmd.publish(m)
 
@@ -175,7 +175,9 @@ class Console(SteadyNode):
                 send_asser_param_message("backleft")
                 send_asser_param_message("backright")
 
+            m.new_value = get_arg(2)
 
+            self.pub_asserv_param.publish(m)
         elif command_name == "help":
             self.get_logger().info("""
 Commands :

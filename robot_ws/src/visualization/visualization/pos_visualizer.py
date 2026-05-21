@@ -14,13 +14,15 @@ class PosVisualizer(SteadyNode):
 
         # --- DearPyGui Setup ---
         dpg.create_context()
-        dpg.create_viewport(title='Position Visualization', width=400, height=400)
+        dpg.create_viewport(title='Position Visualization', width=400, height=450)
 
-        with dpg.window(label="Position", width=400, height=400) as self.window_id:
-            with dpg.plot(label="Position Plot", width=-1, height=-1, equal_aspects=True):
+        with dpg.window(label="Position", width=400, height=450) as self.window_id:
+            with dpg.plot(label="Position Plot", width=-1, height=400, equal_aspects=True):
                 dpg.add_plot_axis(dpg.mvXAxis, label="x")
                 self.y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="y")
                 self.pos_series = dpg.add_scatter_series(x=[0.0], y=[0.0], parent=self.y_axis)
+
+            self.theta_text = dpg.add_text("Theta: 0.0")
 
         dpg.setup_dearpygui()
         dpg.show_viewport()
@@ -31,6 +33,7 @@ class PosVisualizer(SteadyNode):
 
     def pos_callback(self, msg: Pose2D):
         dpg.set_value(self.pos_series, [[msg.x], [msg.y]])
+        dpg.set_value(self.theta_text, f"Theta: {msg.theta:.2f}")
 
     def destroy_node(self):
         # Destroy the GUI context when the node is destroyed

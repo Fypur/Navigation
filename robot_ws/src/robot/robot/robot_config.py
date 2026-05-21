@@ -1,12 +1,12 @@
 import math
 
 # -- Console --
-DEFAULT_RPM = 150.0  # RPM par défaut envoyé aux roues (même échelle que la console)
+DEFAULT_RPM = 150.0  # RPM par défaut envoyé aux roues
 
 # -- Automatic --
-K_ATT                 = 1.5            # Gain du champ attractif
+K_ATT                 = 8.0            # Gain du champ attractif #1.5
 K_REP                 = 0.8            # Gain du champ répulsif
-APF_D0                = 0.5            # Rayon d'influence des obstacles (m) — doit correspondre à LIDAR_OBSTACLE_RANGE
+APF_D0                = 2.0            # Rayon d'influence des obstacles (m) — doit correspondre à LIDAR_OBSTACLE_RANGE
 APF_MIN_DIST          = 0.05           # Distance plancher pour éviter la division par zéro (m)
 GOAL_RADIUS           = 0.2            # Distance en dessous de laquelle la cible est considérée atteinte (m)
 DEFAULT_GOAL_X        = 1.0            # Position cible par défaut en x (m)
@@ -21,8 +21,8 @@ APF_HEADING_TOLERANCE = math.pi / 4.0  # Angle à partir duquel le robot réduit
 LOC_DIST_THRESHOLD        = 0.3               # Distance mini pour maj de la carte (m)
 LOC_ANGLE_THRESHOLD       = math.radians(15)  # Angle mini pour maj de la carte (rad)
 ICP_MAX_CORRESPOND_DIST   = 1.5               # Distance max pour qu'une correspondance soit valide (m)
-ICP_MAX_JUMP_DIST         = 0.15              # Tolérance de saut de distance brutale ICP (m)
-ICP_MAX_JUMP_ANGLE        = 0.35              # Tolérance de saut d'angle brutale ICP (rad)
+ICP_MAX_JUMP_DIST         = 0.3              # Tolérance de saut de distance brutale ICP (m)
+ICP_MAX_JUMP_ANGLE        = 0.40              # Tolérance de saut d'angle brutale ICP (rad)
 ICP_VOXEL_SIZE            = 0.05              # Taille du voxel pour le filtrage du nuage de points (m)
 ICP_FITNESS_THRESHOLD     = 0.7               # Score min pour accepter la correction (0.0 à 1.0)
 ICP_INLIER_RMSE_THRESHOLD = 0.15              # Erreur de distance max acceptée (m)
@@ -31,16 +31,16 @@ ICP_MIN_POINTS            = 30                # Nombre minimum de points requis 
 
 
 # -- Paramètres généraux du robot --
-WHEEL_RADIUS = 0.04  # Rayon des roues en mètres (4 cm)
+WHEEL_RADIUS = 0.0325  # Rayon des roues en mètres (3.25 cm)
 ROBOT_RADIUS = 0.15  # Rayon approximatif du robot pour l'APF (m)
-LX           = 0.15  # Distance centre -> axe avant/arrière (m)
-LY           = 0.15  # Distance centre -> axe gauche/droite (m)
+LX           = 0.10  # Distance centre -> axe avant/arrière (m)
+LY           = 0.10  # Distance centre -> axe gauche/droite (m)
 GEAR_RATIO   = 1.0   # Rapport de réduction (1.0 = RPM moteur == RPM roue)
-ROBOT_SIZE   = 0.80  # Taille du robot pour la détection de collision (m)
 
 
 # -- Paramètres des actionneurs --
 MAX_RPM = 160.0  # RPM maximum envoyé aux roues (même échelle que la console)
+MIN_RPM = 100.0  # RPM minimum envoyé aux roues 
 
 
 # -- Paramètres du Lidar --
@@ -51,7 +51,6 @@ LIDAR_OBSTACLE_RANGE = 2.0   # Distance en dessous de laquelle un point est un "
 
 # -- Paramètres des encodeurs --
 ENCODER_NOISE_THRESHOLD = 0.5
-
 
 
 # CINÉMATIQUE DU ROBOT

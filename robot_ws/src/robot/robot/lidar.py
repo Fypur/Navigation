@@ -64,7 +64,7 @@ class LidarNode(Node):
         angles_obs = []
         dists_obs = []
         
-        angle = scan.angle_min
+        angle = 0.0
         
         for r in scan.ranges:
             # On filtre les valeurs invalides
@@ -86,12 +86,12 @@ class LidarNode(Node):
         msg_all.distances = dists_all
         self.pub_lidar.publish(msg_all)
         
-        # Publication topic obstacles (uniquement si des obstacles proches existent)
-        if angles_obs:
-            msg_obs = Lidar()
-            msg_obs.angles = angles_obs
-            msg_obs.distances = dists_obs
-            self.pub_obstacles.publish(msg_obs)
+        # Publication topic obstacles (TOUJOURS publier, même si vide)
+        #if angles_obs:
+        msg_obs = Lidar()
+        msg_obs.angles = angles_obs
+        msg_obs.distances = dists_obs
+        self.pub_obstacles.publish(msg_obs)
         
         self.get_logger().debug(f"Scan reçu : {len(dists_all)} pts valides, {len(dists_obs)} obstacles (<{self.obs_range}m)")
         # self.get_logger().debug(f"angle_max={scan.angle_max} rad, angle_min={scan.angle_min} rad, angle_inc={scan.angle_increment} rad")
