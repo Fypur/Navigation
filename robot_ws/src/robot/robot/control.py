@@ -90,10 +90,10 @@ class Control(SteadyNode):
         }
 
         self.wheelControls = [
-            self.WheelControl(base_pwm(self.front_left_RPM), 0.765, 1.12,0, self.get_logger()),
-            self.WheelControl(base_pwm(self.front_right_RPM), 0.765, 1.02, 0, self.get_logger()),
-            self.WheelControl(base_pwm(self.back_right_RPM), 0.81, 1.33, 0, self.get_logger()),
-            self.WheelControl(base_pwm(self.back_left_RPM), 0.855, 1.24, 0, self.get_logger()),
+            self.WheelControl(base_pwm(self.front_left_RPM), 2.33, 7.6, 0, self.get_logger()),
+            self.WheelControl(base_pwm(self.front_right_RPM), 2.15, 6.9, 0, self.get_logger()),
+            self.WheelControl(base_pwm(self.back_right_RPM), 2.54, 7.3, 0, self.get_logger()),
+            self.WheelControl(base_pwm(self.back_left_RPM), 2.37, 7.74, 0, self.get_logger()),
         ]
 
         self.get_logger().info("Control Node launched")

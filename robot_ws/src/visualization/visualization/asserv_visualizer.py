@@ -10,16 +10,21 @@ import numpy as np
 class AsservVisualizer(SteadyNode):
 
     class WheelPlot():
-        def __init__(self, wheel_name : str, pwm_signal: bool) -> None:
+        def __init__(self, wheel_name : str, is_pwm_signal: bool) -> None:
             self.data_x = np.array([])
             self.data_y = np.array([])
             self.time = 0.0
             self.cmd_line = None
-            self.height = 256 if pwm_signal else 180
+            self.height = 258 if is_pwm_signal else 180
+            self.is_pwm_signal = is_pwm_signal
 
             with dpg.plot(label=wheel_name, width=600, height=200):
                 self.x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Time (s)")
-                self.y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="RPM/PWM")
+
+                if is_pwm_signal:
+                    self.y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="PWM Order")
+                else:
+                    self.y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="RPM")
 
                 # Create an empty scatter series to hold our points
                 self.line_series = dpg.add_line_series([], [], parent=self.y_axis)
@@ -87,10 +92,10 @@ class AsservVisualizer(SteadyNode):
         self.wheelPlots[6].set_command(msg.back_left_rpm)
 
     def wheel_speeds_callback(self, msg: WheelSpeeds):
-        self.wheelPlots[1].add_data(abs(msg.front_left_wheel_speed))
-        self.wheelPlots[3].add_data(abs(msg.front_right_wheel_speed))
-        self.wheelPlots[5].add_data(abs(msg.back_right_wheel_speed))
-        self.wheelPlots[7].add_data(abs(msg.back_left_wheel_speed))
+        self.wheelPlots[1].add_data(msg.front_left_wheel_speed)
+        self.wheelPlots[3].add_data(msg.front_right_wheel_speed)
+        self.wheelPlots[5].add_data(msg.back_right_wheel_speed)
+        self.wheelPlots[7].add_data(msg.back_left_wheel_speed)
 
     def destroy_node(self):
         # Destroy the GUI context when the node is destroyed
