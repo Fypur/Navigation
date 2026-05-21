@@ -115,6 +115,17 @@ class Encoders(SteadyNode):
     def __init__(self):
         super().__init__("encoders")
 
+        def is_raspberry_pi():
+            try:
+                with open('/proc/device-tree/model', 'r') as f:
+                    return 'Raspberry Pi' in f.read()
+            except FileNotFoundError:
+                return False
+
+        if not is_raspberry_pi():
+            self.get_logger().error("This node can only run a raspberry pi !")
+            exit()
+
         self.pi = pigpio.pi()
         if not self.pi.connected:
             self.get_logger().error("Could not connect to pigpiod — is it running? (sudo pigpiod)")
@@ -156,6 +167,9 @@ def main():
     node = Encoders()
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     finally:
         node.destroy_node()
-    rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
