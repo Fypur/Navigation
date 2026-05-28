@@ -2,10 +2,11 @@ import rclpy
 from math import copysign
 from robot.steady_node import SteadyNode
 from msgs.msg import WheelSpeeds, RPMs, AsservParamChange
+from std_msgs.msg import Empty, String
 from time import time
 from typing import Callable
-from robot_config import FL_KP, FL_KI, FL_KD, FR_KP, FR_KI, FR_KD, BR_KP, BR_KI, BR_KD, BL_KP, BL_KI, BL_KD, MAX_ACCUMULATED_ERROR, WHEEL_UPDATING_PERIOD
-
+from robot.robot_config import FL_KP, FL_KI, FL_KD, FR_KP, FR_KI, FR_KD, BR_KP, BR_KI, BR_KD, BL_KP, BL_KI, BL_KD, MAX_ACCUMULATED_ERROR, WHEEL_UPDATING_PERIOD
+from textwrap import dedent
 
 class Control(SteadyNode):
 
@@ -69,6 +70,9 @@ class Control(SteadyNode):
 
         self.create_subscription(RPMs, "/robot/command", self.cmd_callback, 10)
         self.create_subscription(WheelSpeeds, "/robot/raw_command", self.raw_cmd_callback, 10)
+
+        self.pub_pid_print = self.create_publisher(String, "/robot/pid_print_values", 10)
+        self.create_subscription(Empty, "/robot/pid_print_request", self.pid_print_request, 10)
 
         self.t = self.create_timer(WHEEL_UPDATING_PERIOD, self.update_wheels)
 
@@ -146,6 +150,17 @@ class Control(SteadyNode):
 
         self.get_logger().info(f"Set {msg.param_id} of wheel {msg.wheel_id} to {msg.new_value}")
 
+    def pid_print_request(self, request: Empty):
+        msg = String()
+        msg.data = dedent(f"""
+            pid values :
+            Front Left : kp={self.wheelControls[0].kp}, ki={self.wheelControls[0].ki}, kd={self.wheelControls[0].kd},
+            Front Right : kp={self.wheelControls[1].kp}, ki={self.wheelControls[1].ki}, kd={self.wheelControls[1].kd}
+            Back Right : kp={self.wheelControls[2].kp}, ki={self.wheelControls[2].ki}, kd={self.wheelControls[2].kd}
+            Back Left : kp={self.wheelControls[3].kp}, ki={self.wheelControls[3].ki}, kd={self.wheelControls[3].kd}
+        """)
+        self.get_logger().info(msg.data)
+        self.pub_pid_print.publish(msg)
 
     # Everything under here isn't used anymore and is legacy code
     def front_left_RPM(self, speed: int):

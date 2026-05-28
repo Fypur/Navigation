@@ -5,7 +5,7 @@ from robot.serial_utils import open_serial_port
 from serial.serialutil import SerialException
 from enum import Enum
 from msgs.msg import WheelSpeeds
-from robot_config import BAUDRATE, ARDUINO_CONNECT_PERIOD
+from robot.robot_config import BAUDRATE, ARDUINO_CONNECT_PERIOD
 
 #This uses robust serial, all explanations can be found on github
 #https://github.com/araffin/arduino-robust-serial

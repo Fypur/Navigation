@@ -1,10 +1,12 @@
 import rclpy
 from robot.steady_node import SteadyNode
 from msgs.msg import RPMs, AsservParamChange
+from std_msgs.msg import Empty, String
 from geometry_msgs.msg import Point
 from std_msgs.msg import Bool
 from msgs.msg import RPMs, AsservParamChange, WheelSpeeds
-from robot_config import DEFAULT_RPM, HELP_MESSAGE
+from robot.robot_config import DEFAULT_RPM, HELP_MESSAGE
+import readline #this is what makes the command line feel good (using arrow keys etc)
 
 
 class Console(SteadyNode):
@@ -18,13 +20,19 @@ class Console(SteadyNode):
         self.pub_asserv_param = self.create_publisher(AsservParamChange, "robot/asserv_params", 10)
         self.pub_goal = self.create_publisher(Point, "/robot/automatic_goal", 10)
         self.pub_enable_auto = self.create_publisher(Bool, "/robot/enable_auto", 10)
+        self.pub_pid_request = self.create_publisher(Empty, "/robot/pid_print_request", 10)
+        self.create_subscription(String, "/robot/pid_print_values", self.pid_print_callback, 10)
 
-        # This is technically bad since it blocks the main thread
-        # But I had issues with the previous version with some desyncs
-        # Console shouldn't really be receiving data anyways so i'd much
-        # rather leave it like this. Feel free to change it though
-        self.get_logger().info("Type help to get help on what commands exist and how to use them.")
-        self.input_loop()
+        # set up autocomplete in readline
+        COMMANDS = ["setrpm", "setpwm", "stop", "printpid", "help", "setkp", "setki", "setkd", "automatic", "manual"]
+        def completer(text, state):
+            matches = [c for c in COMMANDS if c.startswith(text)]
+            return matches[state] if state < len(matches) else None
+
+        readline.set_completer(completer)
+        readline.parse_and_bind("tab: complete")
+
+        self.get_logger().info("Type \"help\" to get help on what commands exist and how to use them.")
 
     # ---------------- UI ----------------
     def show_menu(self):
@@ -49,8 +57,14 @@ class Console(SteadyNode):
             except:
                 self.get_logger().error("Couldn't parse given command. Check if your arguments have the right type !")
 
-    def process(self, cmd: str):
+            timeout = 0
+            if cmd == "printpid":
+                timeout = 1 # we'll wait 1 sec for the answer
 
+            # Receives messages with no waiting time unless we're expecting a message
+            rclpy.spin_once(self, timeout_sec=timeout)
+
+    def process(self, cmd: str):
 
         split_cmd = cmd.strip().split(" ")
         command_name = split_cmd[0]
@@ -135,8 +149,9 @@ class Console(SteadyNode):
             m.back_left_rpm = 0.
 
             self.pub_cmd.publish(m)
-
-        elif command_name.startswith("set"):
+        elif command_name == "printpid":
+            self.pub_pid_request.publish(Empty())
+        elif command_name == "setkp" or command_name == "setki" or command_name == "setkd":
             if len(split_cmd) != 2 and len(split_cmd) != 3:
                 self.get_logger().error(f"set... commands takes 2 or 3 arguments")
                 return
@@ -181,12 +196,21 @@ class Console(SteadyNode):
             self.get_logger().error(f"Unknown command \"{command_name}\"")
             return
 
+    def pid_print_callback(self, msg: String):
+        self.get_logger().info(msg.data)
+
 
 def main():
     rclpy.init()
     node = Console()
     try:
-        rclpy.spin(node)
+        # This is technically bad since it blocks the main thread
+        # But I had issues with the previous version with some desyncs
+        # Console shouldn't really be receiving data anyways so i'd much
+        # rather leave it like this. Feel free to change it though
+        # Update : The console now receives messages but only in between commands !
+        # There is still some desyncs unfortunately tho
+        node.input_loop()
     except KeyboardInterrupt:
         pass
     finally:

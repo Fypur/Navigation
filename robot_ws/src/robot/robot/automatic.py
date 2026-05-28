@@ -7,7 +7,7 @@ from msgs.msg import Lidar, RPMs
 from geometry_msgs.msg import Pose2D, Point
 from std_msgs.msg import Bool
 
-from robot_config import (
+from robot.robot_config import (
     MAX_RPM, MIN_RPM, LIDAR_MIN_DIST, LIDAR_MAX_RANGE_M,
     DEFAULT_GOAL_X, DEFAULT_GOAL_Y, AUTO_LOOP_HZ,
     DWA_MAX_VX, DWA_MAX_VY, DWA_MAX_WZ, DWA_MAX_ACC_V, DWA_MAX_ACC_W,
