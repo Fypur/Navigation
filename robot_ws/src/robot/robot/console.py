@@ -212,10 +212,9 @@ def main():
         # There is still some desyncs unfortunately tho
         node.input_loop()
     except KeyboardInterrupt:
+        print("\n")
         pass
     finally:
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-
-main()
