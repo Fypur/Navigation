@@ -1,5 +1,12 @@
 import math
 
+# Convention des roues :
+# On fait toujours FL, FR, BR, BL (dans le sens des aiguilles d'une montre)
+#   FL = Front-Left  (avant-gauche)
+#   FR = Front-Right (avant-droite)
+#   BR = Back-Right  (arrière-droite)
+#   BL = Back-Left   (arrière-gauche)
+
 # -- Console --
 DEFAULT_RPM = 150.0  # RPM par défaut envoyé aux roues
 HELP_MESSAGE = """
@@ -77,6 +84,7 @@ ICP_FITNESS_THRESHOLD     = 0.7               # Score min pour accepter la corre
 ICP_INLIER_RMSE_THRESHOLD = 0.15              # Erreur de distance max acceptée (m)
 ICP_MAP_UPDATE_FITNESS    = 0.85              # Score min de fitness pour autoriser l'ajout à la carte
 ICP_MIN_POINTS            = 30                # Nombre minimum de points requis pour lancer l'algo ICP
+ENCODER_NOISE_THRESHOLD = 0.5
 
 
 # -- Paramètres généraux du robot --
@@ -98,15 +106,48 @@ LIDAR_N_RAYS         = 360   # Nombre de rayons / Simulation
 LIDAR_MIN_DIST       = 0.05  # Distance plancher pour ignorer les points trop proches (m)
 LIDAR_OBSTACLE_RANGE = 2.0   # Distance en dessous de laquelle un point est un "obstacle" (m)
 
+# -- Noeud de Navigation Automatic (Navigation DWA) --
 
+# Limites cinématiques du robot
+DWA_MAX_VX = 0.5  # m/s   vitesse longitudinale max
+DWA_MAX_VY = 0.5  # m/s   vitesse latérale max car Robot holonome
+DWA_MAX_WZ = 1.0  # rad/s vitesse de rotation max
+DWA_MAX_ACC_V = 1.0  # m/s²  accélération linéaire max
+DWA_MAX_ACC_W = 2.0  # rad/s² accélération angulaire max
 
-# Convention des roues :
-# On fait toujours FL, FR, BR, BL (dans le sens des aiguilles d'une montre)
-#   FL = Front-Left  (avant-gauche)
-#   FR = Front-Right (avant-droite)
-#   BR = Back-Right  (arrière-droite)
-#   BL = Back-Left   (arrière-gauche)
+# Paramètres d'échantillonnage de l'espace des vitesses
+DWA_V_SAMPLES = 5  # nombre d'échantillons sur vx (et vy)
+DWA_W_SAMPLES = 7  # nombre d'échantillons sur wz
 
+# Paramètres de prédiction
+DWA_SIM_TIME = 1.5  # horizon de prédiction en s
+DWA_SIM_STEPS = 15  # discrétisation de la trajectoire
+
+# Gestion des collsions et marges de sécurité
+DWA_ROBOT_RADIUS = 0.15  # m     rayon du robot (clearance)
+DWA_OBSTACLE_MARGIN = 0.15  # m     marge de sécurité supplémentaire
+DWA_LETHAL_DIST = 0.10  # m     distance en dessous de laquelle on bloque
+
+# Poids de la fonction de coût
+DWA_W_HEADING = 0.5  # poids cap vers le but
+DWA_W_CLEARANCE = 0.2  # poids distance aux obstacles
+DWA_W_VELOCITY = 0.1  # poids vitesse (favorise les trajectoires rapides)
+DWA_W_GOAL_DIST = 0.2  # poids distance euclidienne au but
+
+# Seuils d'arrivée
+NAV_GOAL_DIST_TOL = 0.2  # m     on considère le but atteint
+NAV_GOAL_ANGLE_TOL = 0.2  # rad   tolérance angulaire
+
+# Paramètres de robustesse et mode de Recovery
+OBSTACLE_MEMORY_SEC = 0.5  # durée de vie d'un obstacle mémorisé (s)
+LIDAR_STALE_SEC = 0.3  # timeout de sécurité donnée lidar (s)
+STUCK_COUNT_THRESH = 5  # seuil de déclenchement de la séquence de dégagement
+
+# Récupération : recul puis rotation, durées et vitesses fixes
+RECOVERY_BACKUP_S = 1.0  # s      durée du recul
+RECOVERY_ROTATE_S = 1.2  # s      durée de la rotation
+RECOVERY_VX = -0.15  # m/s    vitesse de recul (négatif = reculer)
+RECOVERY_WZ = 0.6  # rad/s  vitesse de rotation (le signe change pour ne pas faire deux fois la meme chose)
 
 
 def angle_wrap(angle: float) -> float:

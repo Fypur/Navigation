@@ -5,7 +5,7 @@ from geometry_msgs.msg import Pose2D
 import math, time
 import numpy as np
 import open3d as o3d
-from robot.robot_config import (WHEEL_RADIUS, LX, LY, LIDAR_MIN_DIST, LIDAR_MAX_RANGE_M,
+from robot_config import (WHEEL_RADIUS, LX, LY, LIDAR_MIN_DIST, LIDAR_MAX_RANGE_M,
                                 LOC_DIST_THRESHOLD, LOC_ANGLE_THRESHOLD, angle_wrap,
                                 ICP_MAX_CORRESPOND_DIST, ICP_MAX_JUMP_DIST,
                                 ICP_MAX_JUMP_ANGLE, ICP_VOXEL_SIZE,

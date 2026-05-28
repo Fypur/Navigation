@@ -4,9 +4,9 @@ from msgs.msg import RPMs, WheelSpeeds
 from rclpy.clock import Clock, ClockType
 import pygame
 from enum import IntEnum
+from robot.robot_config import DEFAULT_RPM
 
 USE_RPM = True
-DEFAULT_RPM = 150.0
 DEFAULT_PWM = 240
 
 class ZQSD_Control(Node):

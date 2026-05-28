@@ -6,7 +6,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from sensor_msgs.msg import LaserScan
 from msgs.msg import Lidar
-from robot.robot_config import LIDAR_MIN_DIST, LIDAR_MAX_RANGE_M, LIDAR_OBSTACLE_RANGE
+from robot_config import LIDAR_MIN_DIST, LIDAR_MAX_RANGE_M, LIDAR_OBSTACLE_RANGE
 
 # Peut-être pas très utile mais on définit la QoS adaptée aux capteurs : best-effort, depth = 1
 SENSOR_QOS = QoSProfile(

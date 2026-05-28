@@ -1,48 +1,3 @@
-# -- Noeud de Navigation Automatic (Navigation DWA) --
-
-# Limites cinématiques du robot
-DWA_MAX_VX          = 0.5     # m/s   vitesse longitudinale max
-DWA_MAX_VY          = 0.5     # m/s   vitesse latérale max car Robot holonome
-DWA_MAX_WZ          = 1.0     # rad/s vitesse de rotation max
-DWA_MAX_ACC_V       = 1.0     # m/s²  accélération linéaire max
-DWA_MAX_ACC_W       = 2.0     # rad/s² accélération angulaire max
-
-# Paramètres d'échantillonnage de l'espace des vitesses
-DWA_V_SAMPLES       = 5       # nombre d'échantillons sur vx (et vy)
-DWA_W_SAMPLES       = 7       # nombre d'échantillons sur wz
-
-# Paramètres de prédiction
-DWA_SIM_TIME        = 1.5     # horizon de prédiction en s
-DWA_SIM_STEPS       = 15      # discrétisation de la trajectoire
-
-# Gestion des collsions et marges de sécurité
-DWA_ROBOT_RADIUS    = 0.15    # m     rayon du robot (clearance)
-DWA_OBSTACLE_MARGIN = 0.15    # m     marge de sécurité supplémentaire
-DWA_LETHAL_DIST     = 0.10    # m     distance en dessous de laquelle on bloque
-
-# Poids de la fonction de coût
-DWA_W_HEADING       = 0.5     # poids cap vers le but
-DWA_W_CLEARANCE     = 0.2     # poids distance aux obstacles
-DWA_W_VELOCITY      = 0.1     # poids vitesse (favorise les trajectoires rapides)
-DWA_W_GOAL_DIST     = 0.2     # poids distance euclidienne au but
-
-# Seuils d'arrivée
-NAV_GOAL_DIST_TOL  = 0.2  # m     on considère le but atteint
-NAV_GOAL_ANGLE_TOL = 0.2  # rad   tolérance angulaire
-
-
-# Paramètres de robustesse et mode de Recovery
-OBSTACLE_MEMORY_SEC = 0.5  # durée de vie d'un obstacle mémorisé (s)
-LIDAR_STALE_SEC     = 0.3  # timeout de sécurité donnée lidar (s)
-STUCK_COUNT_THRESH  = 5    # seuil de déclenchement de la séquence de dégagement
-
-# Récupération : recul puis rotation, durées et vitesses fixes
-RECOVERY_BACKUP_S   = 1.0    # s      durée du recul
-RECOVERY_ROTATE_S   = 1.2    # s      durée de la rotation
-RECOVERY_VX         = -0.15  # m/s    vitesse de recul (négatif = reculer)
-RECOVERY_WZ         = 0.6    # rad/s  vitesse de rotation (le signe change pour ne pas faire deux fois la meme chose)
-
-
 import math
 import time
 import numpy as np
@@ -52,9 +7,17 @@ from msgs.msg import Lidar, RPMs
 from geometry_msgs.msg import Pose2D, Point
 from std_msgs.msg import Bool
 
-from robot.robot_config import (
+from robot_config import (
     MAX_RPM, MIN_RPM, LIDAR_MIN_DIST, LIDAR_MAX_RANGE_M,
-    DEFAULT_GOAL_X, DEFAULT_GOAL_Y, AUTO_LOOP_HZ
+    DEFAULT_GOAL_X, DEFAULT_GOAL_Y, AUTO_LOOP_HZ,
+    DWA_MAX_VX, DWA_MAX_VY, DWA_MAX_WZ, DWA_MAX_ACC_V, DWA_MAX_ACC_W,
+    DWA_V_SAMPLES, DWA_W_SAMPLES,
+    DWA_SIM_TIME, DWA_SIM_STEPS,
+    DWA_ROBOT_RADIUS, DWA_OBSTACLE_MARGIN, DWA_LETHAL_DIST,
+    DWA_W_HEADING, DWA_W_CLEARANCE, DWA_W_VELOCITY, DWA_W_GOAL_DIST,
+    NAV_GOAL_DIST_TOL, NAV_GOAL_ANGLE_TOL,
+    OBSTACLE_MEMORY_SEC, LIDAR_STALE_SEC, STUCK_COUNT_THRESH,
+    RECOVERY_BACKUP_S, RECOVERY_ROTATE_S, RECOVERY_VX, RECOVERY_WZ
 )
 
 # Fonctions utilitaires
