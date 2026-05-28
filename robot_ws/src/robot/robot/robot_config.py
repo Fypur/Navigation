@@ -2,6 +2,25 @@ import math
 
 # -- Console --
 DEFAULT_RPM = 150.0  # RPM par défaut envoyé aux roues
+HELP_MESSAGE = """
+Commands :
+- automatic: Sends the robot to a target position. Can be used like so :
+    >> automatic <x_target> <y_target>
+- setrpm : Sets the RPMS of the wheels to the given speeds. Can be used like so :
+    >> setrpm <front_left_wheel_rpm> <front_right_wheel_rpm> <back_right_wheel_rpm> <back_left_wheel_rpm> 
+    >> setrpm <all_wheels_rpm>
+    >> setrpm
+    This last one is setting all wheels' rpms to the default RPM value (150)
+- setpwm : Sets the raw PWM sent to the wheels to a certain value between -255 and 255.
+    >> setpwm <front_left_wheel_pwm> <front_right_wheel_pwm> <back_right_wheel_pwm> <back_left_wheel_pwm> 
+    >> setpwm <all_wheels_pwm>
+    >> setpwm
+- stop: equivalent to setrpm 0
+- setkp, setki, setkd: sets a coefficient for the servoing (asservissement) of a given wheel. Can be used like so :
+    >> setkp frontleft 0.3
+    >> setkd backright 2.3
+    >> setkp 2.5 (sets kp to 2.5 for all wheels)                 
+"""
 
 # Roues
 FRONT_LEFT_FLIPPED = False # Est ce qu'on doit flip la direction des moteurs pour cette roue ?
@@ -9,7 +28,7 @@ FRONT_RIGHT_FLIPPED = True
 BACK_RIGHT_FLIPPED = True
 BACK_LEFT_FLIPPED = False
 
-# Asservissement
+# Asservissement (valeurs du PID)
 FL_KP = 2.33
 FL_KI = 7.6
 FL_KD = 0
@@ -25,8 +44,8 @@ BL_KD = 0
 MAX_ACCUMULATED_ERROR = 1000.0
 
 # Timers Periods
-WHEEL_UPDATING_PERIOD = 0.02
-RPMS_UPDATING_PERIOD = 0.1
+WHEEL_UPDATING_PERIOD = 0.02 # Période du timer qui envoie à l'arduino les nouvelles vitesses des roues
+RPMS_UPDATING_PERIOD = 0.1 # Période de l'update des RPMs par les encodeurs
 
 # Serial
 BAUDRATE = 115200
@@ -79,11 +98,6 @@ LIDAR_N_RAYS         = 360   # Nombre de rayons / Simulation
 LIDAR_MIN_DIST       = 0.05  # Distance plancher pour ignorer les points trop proches (m)
 LIDAR_OBSTACLE_RANGE = 2.0   # Distance en dessous de laquelle un point est un "obstacle" (m)
 
-# -- Paramètres des encodeurs --
-ENCODER_NOISE_THRESHOLD = 0.5
-
-
-# CINÉMATIQUE DU ROBOT
 
 
 # Convention des roues :

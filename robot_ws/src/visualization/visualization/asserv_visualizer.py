@@ -1,11 +1,8 @@
 import rclpy
-import math
 import dearpygui.dearpygui as dpg
 from robot.steady_node import SteadyNode
 from msgs.msg import RPMs, WheelSpeeds
 import numpy as np
-
-#this was written using AI, use it to look at what the lidar sees in real time
 
 class AsservVisualizer(SteadyNode):
 

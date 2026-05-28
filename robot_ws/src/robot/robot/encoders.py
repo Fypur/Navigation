@@ -7,7 +7,7 @@ from enum import IntEnum
 import time
 from msgs.msg import RPMs
 import collections
-from robot_config import FRONT_LEFT_FLIPPED, FRONT_RIGHT_FLIPPED, BACK_RIGHT_FLIPPED, BACK_LEFT_FLIPPED
+from robot_config import FRONT_LEFT_FLIPPED, FRONT_RIGHT_FLIPPED, BACK_RIGHT_FLIPPED, BACK_LEFT_FLIPPED, RPMS_UPDATING_PERIOD
 
 # This node uses pigpio instead of GPIO. This is so that the callback when the B (or A) signal is falling we have a callback in about
 # 1μs instead of 1ms. This is important because if the callback isn't made fast enough, the reading of the A (or B) signal isn't correct

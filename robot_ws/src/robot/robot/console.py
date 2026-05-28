@@ -4,7 +4,7 @@ from msgs.msg import RPMs, AsservParamChange
 from geometry_msgs.msg import Point
 from std_msgs.msg import Bool
 from msgs.msg import RPMs, AsservParamChange, WheelSpeeds
-from robot.robot_config import DEFAULT_RPM
+from robot_config import DEFAULT_RPM, HELP_MESSAGE
 
 
 class Console(SteadyNode):
@@ -176,24 +176,7 @@ class Console(SteadyNode):
                 send_asserv_param_message("backright")
 
         elif command_name == "help":
-            self.get_logger().info("""
-Commands :
-- automatic: Sends the robot to a target position. Can be used like so :
-    >> automatic <x_target> <y_target>
-- setrpm : Sets the RPMS of the wheels to the given speeds. Can be used like so :
-    >> setrpm <front_left_wheel_rpm> <front_right_wheel_rpm> <back_right_wheel_rpm> <back_left_wheel_rpm> 
-    >> setrpm <all_wheels_rpm>
-    >> setrpm
-    This last one is setting all wheels' rpms to 150
-- setpwm : Sets the raw PWM sent to the wheels to a certain value between -255 and 255.
-    >> setpwm <front_left_wheel_pwm> <front_right_wheel_pwm> <back_right_wheel_pwm> <back_left_wheel_pwm> 
-    >> setpwm <all_wheels_pwm>
-    >> setpwm
-- stop: equivalent to setrpm 0
-- setkp, setki, setkd: sets a coefficient for the servoing (asservissement) of a given wheel. Can be used like so :
-    >> setkp frontleft 0.3
-    >> setkd backright 2.3                     
-""")
+            self.get_logger().info(HELP_MESSAGE)
         else:
             self.get_logger().error(f"Unknown command \"{command_name}\"")
             return
