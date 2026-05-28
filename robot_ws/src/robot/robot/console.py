@@ -155,7 +155,7 @@ class Console(SteadyNode):
             else:
                 new_value = get_float_arg(1)
 
-            def send_asser_param_message(wheel_id: str):
+            def send_asserv_param_message(wheel_id: str):
                 m = AsservParamChange()
                 m.wheel_id = wheel_id
                 m.param_id = param_id
@@ -168,16 +168,13 @@ class Console(SteadyNode):
                 self.pub_asserv_param.publish(m)
 
             if len(split_cmd) == 3:
-                send_asser_param_message(split_cmd[1])
+                send_asserv_param_message(split_cmd[1])
             else:
-                send_asser_param_message("frontleft")
-                send_asser_param_message("frontright")
-                send_asser_param_message("backleft")
-                send_asser_param_message("backright")
+                send_asserv_param_message("frontleft")
+                send_asserv_param_message("frontright")
+                send_asserv_param_message("backleft")
+                send_asserv_param_message("backright")
 
-            m.new_value = get_arg(2)
-
-            self.pub_asserv_param.publish(m)
         elif command_name == "help":
             self.get_logger().info("""
 Commands :

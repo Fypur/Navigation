@@ -7,7 +7,11 @@ from enum import IntEnum
 import time
 from msgs.msg import RPMs
 import collections
+from robot_config import FRONT_LEFT_FLIPPED, FRONT_RIGHT_FLIPPED, BACK_RIGHT_FLIPPED, BACK_LEFT_FLIPPED
 
+# This node uses pigpio instead of GPIO. This is so that the callback when the B (or A) signal is falling we have a callback in about
+# 1μs instead of 1ms. This is important because if the callback isn't made fast enough, the reading of the A (or B) signal isn't correct
+# We need it to be correct in order to know if the wheel is spinning forwards or backwards
 try:
     import pigpio
 except ImportError:
@@ -26,9 +30,8 @@ class PinMap(IntEnum):
     ENCODER_BACK_LEFT_A = 2
     ENCODER_BACK_LEFT_B = 3
 
-
 # With pigpio we trigger on both edges of A (instead of one edge of B),
-# giving 2x the pulses. Adjust this if your RPMs look doubled.
+# giving 2x the pulses
 PULSES_PER_REV = 234.3 * 2
 
 
@@ -56,20 +59,21 @@ class Encoders(SteadyNode):
             # Seed B's level before attaching callbacks
             self.b_level = pi.read(b_pin)
 
-            # B callback just keeps _b_level current.
-            # Since we fire on every edge, _b_level is always accurate by the
-            # time _on_a fires — no need to read the pin live.
-            self.callback_b = pi.callback(b_pin, pigpio.EITHER_EDGE, self._on_b)
-            self.callback_a = pi.callback(a_pin, pigpio.EITHER_EDGE, self._on_a)
+            # B callback just keeps b_level current.
+            # Since we fire on every edge, b_level is always accurate by the
+            # time on_a fires — no need to read the pin live
+            # This is kinda eh logic but it works
+            self.callback_b = pi.callback(b_pin, pigpio.EITHER_EDGE, self.on_b)
+            self.callback_a = pi.callback(a_pin, pigpio.EITHER_EDGE, self.on_a)
 
             logger.info(f"Pin setup for pins a={a_pin} b={b_pin}")
 
-        def _on_b(self, gpio, level, tick):
+        def on_b(self, gpio, level, tick):
             self.b_level = level
 
-        def _on_a(self, gpio, level, tick):
+        def on_a(self, gpio, level, tick):
             # Determine direction from the quadrature state transition.
-            # _b_level is always current: if B changed, _on_b already fired.
+            # b_level is always current: if B changed, on_b already fired.
             #   A rising  + B low  → forward
             #   A rising  + B high → backward
             #   A falling + B high → forward
@@ -89,6 +93,7 @@ class Encoders(SteadyNode):
             """
             Updates the RPM of the wheel associated with this encoder and returns it.
             The RPM is positive when spinning forwards, and negative when spinning backwards.
+            RPM is calculated using a sliding average (moyenne glissante)
             """
             current_time = time.time()
 
@@ -133,14 +138,14 @@ class Encoders(SteadyNode):
 
         logger = self.get_logger()
         self.encoderSignalPins = [
-            self.EncoderSignalPin(self.pi, PinMap.ENCODER_FRONT_LEFT_A, PinMap.ENCODER_FRONT_LEFT_B, False, logger),
-            self.EncoderSignalPin(self.pi, PinMap.ENCODER_FRONT_RIGHT_A, PinMap.ENCODER_FRONT_RIGHT_B, True, logger),
-            self.EncoderSignalPin(self.pi, PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, True, logger),
-            self.EncoderSignalPin(self.pi, PinMap.ENCODER_BACK_LEFT_A, PinMap.ENCODER_BACK_LEFT_B, False, logger),
+            self.EncoderSignalPin(self.pi, PinMap.ENCODER_FRONT_LEFT_A, PinMap.ENCODER_FRONT_LEFT_B, FRONT_LEFT_FLIPPED, logger),
+            self.EncoderSignalPin(self.pi, PinMap.ENCODER_FRONT_RIGHT_A, PinMap.ENCODER_FRONT_RIGHT_B, FRONT_RIGHT_FLIPPED, logger),
+            self.EncoderSignalPin(self.pi, PinMap.ENCODER_BACK_RIGHT_A, PinMap.ENCODER_BACK_RIGHT_B, BACK_RIGHT_FLIPPED, logger),
+            self.EncoderSignalPin(self.pi, PinMap.ENCODER_BACK_LEFT_A, PinMap.ENCODER_BACK_LEFT_B, BACK_LEFT_FLIPPED, logger),
         ]
 
         self.pub = self.create_publisher(RPMs, "/robot/encoders", 10)
-        self.create_timer(0.1, self.send_RPMs)
+        self.create_timer(RPMS_UPDATING_PERIOD, self.send_RPMs)
         self.get_logger().info("Encoders node launched")
 
     def send_RPMs(self):

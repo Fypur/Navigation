@@ -5,12 +5,10 @@ from robot.serial_utils import open_serial_port
 from serial.serialutil import SerialException
 from enum import Enum
 from msgs.msg import WheelSpeeds
+from robot_config import BAUDRATE, ARDUINO_CONNECT_PERIOD
 
 #This uses robust serial, all explanations can be found on github
 #https://github.com/araffin/arduino-robust-serial
-
-BAUDRATE = 115200
-CONNECT_PERIOD = 1  #time between each attempt to connect to the arduino
 
 
 class Order(Enum):
@@ -42,7 +40,7 @@ class Serial(SteadyNode):
         self.get_logger().info("Serial node successfully launched")
 
         self.connected_to_arduino = False
-        self.connect_timer = self.create_timer(CONNECT_PERIOD, self.connect_to_arduino)
+        self.connect_timer = self.create_timer(ARDUINO_CONNECT_PERIOD, self.connect_to_arduino)
 
     def send_wheel_speeds(self, msg: WheelSpeeds):
         """Sends the wheel speeds in the WheelSpeeds msg over to the arduino"""

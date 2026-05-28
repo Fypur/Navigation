@@ -4,9 +4,7 @@ from robot.steady_node import SteadyNode
 from msgs.msg import WheelSpeeds, RPMs, AsservParamChange
 from time import time
 from typing import Callable
-
-DEST_X = 700.0
-DEST_Y = 550.0
+from robot_config import FL_KP, FL_KI, FL_KD, FR_KP, FR_KI, FR_KD, BR_KP, BR_KI, BR_KD, BL_KP, BL_KI, BL_KD, MAX_ACCUMULATED_ERROR, WHEEL_UPDATING_PERIOD
 
 
 class Control(SteadyNode):
@@ -21,8 +19,8 @@ class Control(SteadyNode):
             self.kd = kd
             self.accumulated_error = 0.0
             self.last_error = 0.0
-            self.max_accumulated_error = 1000.0
-            self.min_accumulated_error = -1000.0
+            self.max_accumulated_error = MAX_ACCUMULATED_ERROR
+            self.min_accumulated_error = -MAX_ACCUMULATED_ERROR
             self.last_time = time()
             self.basePWMFunction = basePWMFunction
             self.target_rpm = 0.
@@ -72,7 +70,7 @@ class Control(SteadyNode):
         self.create_subscription(RPMs, "/robot/command", self.cmd_callback, 10)
         self.create_subscription(WheelSpeeds, "/robot/raw_command", self.raw_cmd_callback, 10)
 
-        self.t = self.create_timer(0.1, self.update_wheels)
+        self.t = self.create_timer(WHEEL_UPDATING_PERIOD, self.update_wheels)
 
         # init asservissement
         def base_pwm(rpmfunc):
@@ -90,10 +88,10 @@ class Control(SteadyNode):
         }
 
         self.wheelControls = [
-            self.WheelControl(base_pwm(self.front_left_RPM), 2.33, 7.6, 0, self.get_logger()),
-            self.WheelControl(base_pwm(self.front_right_RPM), 2.15, 6.9, 0, self.get_logger()),
-            self.WheelControl(base_pwm(self.back_right_RPM), 2.54, 7.3, 0, self.get_logger()),
-            self.WheelControl(base_pwm(self.back_left_RPM), 2.37, 7.74, 0, self.get_logger()),
+            self.WheelControl(base_pwm(self.front_left_RPM), FL_KP, FL_KI, FL_KD, self.get_logger()),
+            self.WheelControl(base_pwm(self.front_right_RPM), FR_KP, FR_KI, FR_KD, self.get_logger()),
+            self.WheelControl(base_pwm(self.back_right_RPM), BR_KP, BR_KI, BR_KD, self.get_logger()),
+            self.WheelControl(base_pwm(self.back_left_RPM), BL_KP, BL_KI, BL_KD, self.get_logger()),
         ]
 
         self.get_logger().info("Control Node launched")
@@ -149,6 +147,7 @@ class Control(SteadyNode):
         self.get_logger().info(f"Set {msg.param_id} of wheel {msg.wheel_id} to {msg.new_value}")
 
 
+    # Everything under here isn't used anymore and is legacy code
     def front_left_RPM(self, speed: int):
         if speed == 0:
             return 0.0

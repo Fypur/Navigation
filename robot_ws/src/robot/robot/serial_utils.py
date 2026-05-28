@@ -3,7 +3,7 @@ import sys
 import glob
 import serial
 
-#This was not written by P28 and was just used in serial.py
+#This was not written by us and was just used in serial.py
 
 
 # From https://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python

@@ -3,6 +3,36 @@ import math
 # -- Console --
 DEFAULT_RPM = 150.0  # RPM par défaut envoyé aux roues
 
+# Roues
+FRONT_LEFT_FLIPPED = False # Est ce qu'on doit flip la direction des moteurs pour cette roue ?
+FRONT_RIGHT_FLIPPED = True
+BACK_RIGHT_FLIPPED = True
+BACK_LEFT_FLIPPED = False
+
+# Asservissement
+FL_KP = 2.33
+FL_KI = 7.6
+FL_KD = 0
+FR_KP = 2.15
+FR_KI = 6.9
+FR_KD = 0
+BR_KP = 2.54
+BR_KI = 7.3
+BR_KD = 0
+BL_KP = 2.37
+BL_KI = 7.74
+BL_KD = 0
+MAX_ACCUMULATED_ERROR = 1000.0
+
+# Timers Periods
+WHEEL_UPDATING_PERIOD = 0.02
+RPMS_UPDATING_PERIOD = 0.1
+
+# Serial
+BAUDRATE = 115200
+ARDUINO_CONNECT_PERIOD = 1  #time between each attempt to connect to the arduino
+#Just for your information, the lidar baudrate is 460800
+
 # -- Automatic --
 K_ATT                 = 8.0            # Gain du champ attractif #1.5
 K_REP                 = 0.8            # Gain du champ répulsif
@@ -27,7 +57,7 @@ ICP_VOXEL_SIZE            = 0.05              # Taille du voxel pour le filtrage
 ICP_FITNESS_THRESHOLD     = 0.7               # Score min pour accepter la correction (0.0 à 1.0)
 ICP_INLIER_RMSE_THRESHOLD = 0.15              # Erreur de distance max acceptée (m)
 ICP_MAP_UPDATE_FITNESS    = 0.85              # Score min de fitness pour autoriser l'ajout à la carte
-ICP_MIN_POINTS            = 30                # Nombre minimum de points requis pour lancer l'algo ICP 
+ICP_MIN_POINTS            = 30                # Nombre minimum de points requis pour lancer l'algo ICP
 
 
 # -- Paramètres généraux du robot --
@@ -40,7 +70,7 @@ GEAR_RATIO   = 1.0   # Rapport de réduction (1.0 = RPM moteur == RPM roue)
 
 # -- Paramètres des actionneurs --
 MAX_RPM = 160.0  # RPM maximum envoyé aux roues (même échelle que la console)
-MIN_RPM = 100.0  # RPM minimum envoyé aux roues 
+MIN_RPM = 100.0  # RPM minimum envoyé aux roues
 
 
 # -- Paramètres du Lidar --
@@ -57,6 +87,7 @@ ENCODER_NOISE_THRESHOLD = 0.5
 
 
 # Convention des roues :
+# On fait toujours FL, FR, BR, BL (dans le sens des aiguilles d'une montre)
 #   FL = Front-Left  (avant-gauche)
 #   FR = Front-Right (avant-droite)
 #   BR = Back-Right  (arrière-droite)

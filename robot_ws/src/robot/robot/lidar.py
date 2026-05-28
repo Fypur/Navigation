@@ -45,6 +45,7 @@ class LidarNode(Node):
         self.pub_lidar = self.create_publisher(Lidar, '/robot/lidar', 10)
         
         # Utilisé directement par l'algorithme de plannification et pour la détection d'obstacles
+        # Les obstacles sont tous les points à une distance inférieure à self.obs_range
         self.pub_obstacles = self.create_publisher(Lidar, '/robot/lidar_obstacles', 10)
         
         self.get_logger().info(
