@@ -28,10 +28,7 @@ class PinMap(IntEnum):
     ENCODER_BACK_LEFT_A = 2
     ENCODER_BACK_LEFT_B = 3
 
-# gpiozero triggers on all 4 edges of the quadrature cycle (both rising and falling for A and B).
-# Because the previous pigpio implementation only triggered on EITHER_EDGE of A (2x pulses),
-# we adjust the multiplier to 4x to match gpiozero's step counting.
-PULSES_PER_REV = 234.3 * 4
+PULSES_PER_REV = 234.3
 
 
 class Encoders(SteadyNode):
