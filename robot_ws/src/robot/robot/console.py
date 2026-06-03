@@ -21,10 +21,11 @@ class Console(SteadyNode):
         self.pub_goal = self.create_publisher(Point, "/robot/automatic_goal", 10)
         self.pub_enable_auto = self.create_publisher(Bool, "/robot/enable_auto", 10)
         self.pub_pid_request = self.create_publisher(Empty, "/robot/pid_print_request", 10)
+        self.pub_reset_pos = self.create_publisher(Empty, "/robot/reset_pos", 10)
         self.create_subscription(String, "/robot/pid_print_values", self.pid_print_callback, 10)
 
         # set up autocomplete in readline
-        COMMANDS = ["setrpm", "setpwm", "stop", "printpid", "help", "setkp", "setki", "setkd", "automatic", "manual"]
+        COMMANDS = ["setrpm", "setpwm", "stop", "printpid", "help", "setkp", "setki", "setkd", "automatic", "manual", "resetpos"]
         def completer(text, state):
             matches = [c for c in COMMANDS if c.startswith(text)]
             return matches[state] if state < len(matches) else None
@@ -151,6 +152,8 @@ class Console(SteadyNode):
             self.pub_cmd.publish(m)
         elif command_name == "printpid":
             self.pub_pid_request.publish(Empty())
+        elif command_name == "resetpos":
+            self.pub_reset_pos.publish(Empty())
         elif command_name == "setkp" or command_name == "setki" or command_name == "setkd":
             if len(split_cmd) != 2 and len(split_cmd) != 3:
                 self.get_logger().error(f"set... commands takes 2 or 3 arguments")

@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from msgs.msg import Lidar, RPMs
+from std_msgs.msg import Empty
 from geometry_msgs.msg import Pose2D
 import math, time
 import numpy as np
@@ -33,7 +34,8 @@ class LocalizationNode(Node):
         self.angle_threshold = LOC_ANGLE_THRESHOLD
 
         self.create_subscription(RPMs,  '/robot/encoders', self.encoders_callback, 1)
-        self.create_subscription(Lidar, '/robot/lidar',    self.lidar_callback,    1)
+        self.create_subscription(Lidar, '/robot/lidar', self.lidar_callback, 1)
+        self.create_subscription(Empty, '/robot/reset_pos', self.reset, 1)
         self.pub_pos = self.create_publisher(Pose2D, '/robot/pos', 10)
         self.get_logger().info("Noeud Localisation démarré (open3d ICP)")
 
@@ -215,7 +217,6 @@ class LocalizationNode(Node):
 
         self._publish()
 
-
     #  UTILITAIRES
     def _scan_to_global_pcd(self, msg: Lidar) -> o3d.geometry.PointCloud:
         """
@@ -244,6 +245,19 @@ class LocalizationNode(Node):
         out.x, out.y, out.theta = float(self.x), float(self.y), float(self.theta)
         self.pub_pos.publish(out)
 
+    def reset(self, msg: Empty):
+        # Position fusionnée (publiée)
+        self.x, self.y, self.theta = 0.0, 0.0, 0.0
+
+        # Position odométrique brute (pour debug / monitorer la dérive)
+        self.odom_x, self.odom_y, self.odom_theta = 0.0, 0.0, 0.0
+
+        self.last_time = time.time()
+        self.ref_pcd = None  # Dernier scan de référence (frame globale)
+
+        self.last_ref_x = 0.0
+        self.last_ref_y = 0.0
+        self.last_ref_theta = 0.0
     #@staticmethod
     #def angle_wrap(a: float) -> float:
     #return (a + math.pi) % (2 * math.pi) - math.pi
