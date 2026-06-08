@@ -13,6 +13,8 @@ HELP_MESSAGE = """
 Commands :
 - automatic: Sends the robot to a target position. Can be used like so :
     >> automatic <x_target> <y_target>
+- manual: Takes manual control of the robot, allowing you to send direct speed commands to the wheels
+    >> manual
 - setrpm : Sets the RPMS of the wheels to the given speeds. Can be used like so :
     >> setrpm <front_left_wheel_rpm> <front_right_wheel_rpm> <back_right_wheel_rpm> <back_left_wheel_rpm> 
     >> setrpm <all_wheels_rpm>
@@ -26,7 +28,11 @@ Commands :
 - setkp, setki, setkd: sets a coefficient for the servoing (asservissement) of a given wheel. Can be used like so :
     >> setkp frontleft 0.3
     >> setkd backright 2.3
-    >> setkp 2.5 (sets kp to 2.5 for all wheels)                 
+    >> setkp 2.5 (sets kp to 2.5 for all wheels)  
+- setki, setkd work the same way
+- printpid: prints the current PID coefficients for all wheels
+    >> printpid
+- help: prints this message                  
 """
 
 # Roues
