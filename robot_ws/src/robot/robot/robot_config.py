@@ -103,7 +103,7 @@ GEAR_RATIO   = 1.0   # Rapport de réduction (1.0 = RPM moteur == RPM roue)
 
 # -- Paramètres des actionneurs --
 MAX_RPM = 160.0  # RPM maximum envoyé aux roues (même échelle que la console)
-MIN_RPM = 100.0  # RPM minimum envoyé aux roues
+MIN_RPM = 130.0  # RPM minimum envoyé aux roues
 
 
 # -- Paramètres du Lidar --
@@ -131,17 +131,17 @@ DWA_SIM_STEPS = 15  # discrétisation de la trajectoire
 
 # Gestion des collsions et marges de sécurité
 DWA_ROBOT_RADIUS = 0.15  # m     rayon du robot (clearance)
-DWA_OBSTACLE_MARGIN = 0.15  # m     marge de sécurité supplémentaire
-DWA_LETHAL_DIST = 0.10  # m     distance en dessous de laquelle on bloque
+DWA_OBSTACLE_MARGIN = 0.05  # m     marge de sécurité supplémentaire
+DWA_LETHAL_DIST = 0.0  # m     distance en dessous de laquelle on bloque
 
 # Poids de la fonction de coût
-DWA_W_HEADING = 0.5  # poids cap vers le but
-DWA_W_CLEARANCE = 0.2  # poids distance aux obstacles
+DWA_W_HEADING = 0.2  # poids cap vers le but
+DWA_W_CLEARANCE = 0.1  # poids distance aux obstacles
 DWA_W_VELOCITY = 0.1  # poids vitesse (favorise les trajectoires rapides)
 DWA_W_GOAL_DIST = 0.2  # poids distance euclidienne au but
 
 # Seuils d'arrivée
-NAV_GOAL_DIST_TOL = 0.2  # m     on considère le but atteint
+NAV_GOAL_DIST_TOL = 0.15  # m     on considère le but atteint
 NAV_GOAL_ANGLE_TOL = 0.2  # rad   tolérance angulaire
 
 # Paramètres de robustesse et mode de Recovery
@@ -150,8 +150,8 @@ LIDAR_STALE_SEC = 0.3  # timeout de sécurité donnée lidar (s)
 STUCK_COUNT_THRESH = 5  # seuil de déclenchement de la séquence de dégagement
 
 # Récupération : recul puis rotation, durées et vitesses fixes
-RECOVERY_BACKUP_S = 1.0  # s      durée du recul
-RECOVERY_ROTATE_S = 1.2  # s      durée de la rotation
+RECOVERY_BACKUP_S = 0.4  # s      durée du recul
+RECOVERY_ROTATE_S = 0.3  # s      durée de la rotation
 RECOVERY_VX = -0.15  # m/s    vitesse de recul (négatif = reculer)
 RECOVERY_WZ = 0.6  # rad/s  vitesse de rotation (le signe change pour ne pas faire deux fois la meme chose)
 
